@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1A0F33">
+  <meta name="description" content="Beat Rush: un mini juego de ritmo con 5 niveles y un nivel secreto. Toca al ritmo de la música.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Beat Rush</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='24' fill='%238F6BFF'/%3E%3Ccircle cx='24' cy='32' r='5' fill='%23fff'/%3E%3Ccircle cx='40' cy='32' r='5' fill='%23fff'/%3E%3Ccircle cx='46' cy='8' r='6' fill='%23FFD23F'/%3E%3C/svg%3E">
+  <!-- Fuentes opcionales: sin internet el juego usa fuentes del sistema -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ================= PANTALLA PRINCIPAL ================= -->
+    <section id="screen-title" class="screen screen--title is-active" aria-labelledby="logo">
+      <div class="corner">
+        <button class="icon-btn btn-sound" type="button" aria-pressed="false" aria-label="Silenciar sonido">
+          <svg class="ico ico-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="ico ico-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="title-inner">
+        <h1 id="logo" class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></h1>
+        <p class="tagline">Feel the rhythm</p>
+        <div id="buddy-title" class="buddy buddy--hero" aria-hidden="true"></div>
+        <p id="title-progress" class="title-progress"></p>
+        <div class="title-actions">
+          <button id="btn-map" class="btn-primary" type="button">MAPA</button>
+          <button id="btn-options" class="btn-secondary" type="button">OPCIONES</button>
+        </div>
+        <p class="hint">Toca la pantalla al ritmo. En computadora, usa la barra espaciadora.</p>
+      </div>
+    </section>
+
+    <!-- ================= MAPA ================= -->
+    <section id="screen-map" class="screen screen--map" aria-labelledby="map-title">
+      <header class="bar">
+        <button id="map-back" class="icon-btn" type="button" aria-label="Volver al inicio">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h2 id="map-title" class="bar-title">BEAT RUSH</h2>
+        <span id="map-stars" class="bar-stars"></span>
+      </header>
+      <div id="map-scroll" class="map-scroll">
+        <div id="map-track" class="map-track">
+          <svg id="map-path" class="map-path" aria-hidden="true"></svg>
+        </div>
+      </div>
+      <div id="map-panel" class="map-panel" aria-live="polite"></div>
+    </section>
+
+    <!-- ================= OPCIONES ================= -->
+    <section id="screen-options" class="screen screen--options" aria-labelledby="opt-title">
+      <header class="bar">
+        <button id="opt-back" class="icon-btn" type="button" aria-label="Volver al inicio">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h2 id="opt-title" class="bar-title">Opciones</h2>
+        <span class="bar-spacer"></span>
+      </header>
+      <div class="options-scroll">
+        <div class="opt-group opt-row">
+          <div>
+            <h3>Sonido</h3>
+            <p>Música y efectos del juego.</p>
+          </div>
+          <button id="opt-sound" class="switch" type="button" role="switch" aria-checked="true" aria-label="Sonido"><span></span></button>
+        </div>
+
+        <div class="opt-group">
+          <h3>Sincronía</h3>
+          <p>Si tus golpes marcan “tarde” aunque sientas que tocas a tiempo (pasa con audífonos Bluetooth), mueve el ajuste hacia la derecha. Si marcan “temprano”, hacia la izquierda.</p>
+          <div class="sync">
+            <button id="sync-minus" class="icon-btn icon-btn--text" type="button" aria-label="Restar 10 milisegundos">−</button>
+            <input id="sync-range" type="range" min="-250" max="250" step="5" value="0" aria-label="Ajuste de sincronía en milisegundos">
+            <button id="sync-plus" class="icon-btn icon-btn--text" type="button" aria-label="Sumar 10 milisegundos">+</button>
+          </div>
+          <div class="sync-foot">
+            <output id="sync-value" for="sync-range">0 ms</output>
+            <button id="sync-reset" class="btn-link" type="button">Restablecer</button>
+          </div>
+        </div>
+
+        <div class="opt-group">
+          <h3>Cómo jugar</h3>
+          <p>Toca cuando cada bolita llegue al aro. El color te dice el tipo de golpe:</p>
+          <ul class="legend">
+            <li><span class="dot dot--beat"></span>En el pulso</li>
+            <li><span class="dot dot--half"></span>Contratiempo (corchea)</li>
+            <li><span class="dot dot--third"></span>Tresillo</li>
+            <li><span class="dot dot--quarter"></span>Golpe rapidísimo (semicorchea)</li>
+          </ul>
+          <p>Saca 50 o más para desbloquear el siguiente nivel. Consigue 100 en los cinco niveles para descubrir el secreto.</p>
+        </div>
+
+        <div class="opt-group">
+          <h3>Progreso</h3>
+          <p id="opt-storage-note"></p>
+          <button id="opt-reset" class="btn-danger" type="button">Borrar progreso</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= JUEGO ================= -->
+    <section id="screen-game" class="screen screen--game" aria-label="Partida en curso">
+      <div id="scene" class="scene" aria-hidden="true"></div>
+      <header class="hud">
+        <div class="hud-top">
+          <button id="btn-quit" class="icon-btn" type="button" aria-label="Salir al mapa">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+          </button>
+          <span id="hud-level" class="hud-title">Nivel 1</span>
+          <div class="hud-actions">
+            <button id="btn-restart" class="icon-btn" type="button" aria-label="Reiniciar nivel">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M19.5 3.8v4.6h-4.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="icon-btn btn-sound" type="button" aria-pressed="false" aria-label="Silenciar sonido">
+              <svg class="ico ico-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <svg class="ico ico-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat stat--score">
+            <span class="stat-label">SCORE</span>
+            <span id="hud-score" class="stat-value">0</span>
+          </div>
+          <div class="stat stat--combo">
+            <span class="stat-label">COMBO</span>
+            <span class="stat-value"><span id="hud-combo">0</span><small id="hud-mult" class="mult"></small></span>
+          </div>
+          <div class="stat stat--acc">
+            <span class="stat-label">PRECISIÓN</span>
+            <span id="hud-acc" class="stat-value">100%</span>
+          </div>
+        </div>
+      </header>
+
+      <div id="stage" class="stage" role="button" aria-label="Zona de juego. Toca al ritmo.">
+        <canvas id="lane" aria-hidden="true"></canvas>
+        <div id="buddy-game" class="buddy buddy--game" aria-hidden="true"></div>
+        <div id="tag" class="tag" aria-hidden="true"></div>
+        <div id="callout" class="callout" aria-live="polite">
+          <span class="c-main"></span>
+          <span class="c-sub"></span>
+        </div>
+        <div id="judgment" class="judgment" aria-hidden="true">
+          <span class="j-main"></span>
+          <span class="j-sub"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RESULTADO ================= -->
+    <section id="screen-result" class="screen screen--result" aria-labelledby="res-title">
+      <div id="confetti" class="confetti" aria-hidden="true"></div>
+      <div class="result-inner">
+        <p id="res-level" class="res-level"></p>
+        <h2 id="res-title" class="res-title">RESULTADO</h2>
+
+        <div class="res-hero">
+          <div id="buddy-result" class="buddy buddy--result" aria-hidden="true"></div>
+          <div class="res-score-block">
+            <span class="rating-label">SCORE</span>
+            <div class="res-score"><span id="res-score">0</span><small>/ 100</small></div>
+            <div id="res-stars" class="stars" aria-hidden="true"></div>
+          </div>
+          <div class="rating-wrap">
+            <span class="rating-label">RATING</span>
+            <span id="res-rating" class="rating" data-rating="A">A</span>
+          </div>
+        </div>
+
+        <p id="res-phrase" class="phrase"></p>
+        <p id="res-unlock" class="unlock" hidden></p>
+        <p id="res-record" class="record" hidden>¡Nuevo récord!</p>
+
+        <dl class="res-stats">
+          <div class="res-row"><dt>🎯 PRECISIÓN</dt><dd id="res-acc">0%</dd></div>
+          <div class="res-row"><dt>🔥 MAX COMBO</dt><dd id="res-combo">0</dd></div>
+          <div class="res-row"><dt>⭐ PUNTOS</dt><dd id="res-points">0</dd></div>
+        </dl>
+
+        <p class="breakdown">
+          <span class="bd bd--perfect">PERFECT <b id="res-perfect">0</b></span>
+          <span class="bd bd--good">GOOD <b id="res-good">0</b></span>
+          <span class="bd bd--miss">MISS <b id="res-miss">0</b></span>
+        </p>
+
+        <p id="res-best" class="best"></p>
+
+        <div class="res-actions">
+          <button id="btn-next" class="btn-primary" type="button">SIGUIENTE</button>
+          <div class="res-actions-row">
+            <button id="btn-retry" class="btn-secondary" type="button">Reintentar</button>
+            <button id="btn-tomap" class="btn-secondary" type="button">Mapa</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
