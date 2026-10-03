@@ -1214,6 +1214,68 @@
       this.wood(t, this.sfx, 1318.5, 0.18);
       this.wood(t + 0.06, this.sfx, 1760, 0.16);
     },
+    // Efecto de "cinta que se detiene" (el Gran Silencio)
+    drop(t, dest) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const f = c.createBiquadFilter();
+      const g = c.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(330, t);
+      o.frequency.exponentialRampToValueAtTime(28, t + 0.9);
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(2400, t);
+      f.frequency.exponentialRampToValueAtTime(120, t + 0.9);
+      g.gain.setValueAtTime(0.28, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
+      o.connect(f);
+      f.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 1.05, dest);
+      this._noise(t, dest, 'lowpass', 900, 0.7, 0.18, 0.01, 0.8);
+    },
+    // Zumbido grave y oscuro
+    drone(t, dest, freq, dur) {
+      const c = this.ctx;
+      const g = c.createGain();
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 420;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 1.2);
+      g.gain.setValueAtTime(0.16, t + dur - 1.2);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      f.connect(g);
+      g.connect(dest);
+      [1, 1.5, 2.02].forEach((m, i) => {
+        const o = c.createOscillator();
+        o.type = i === 0 ? 'sawtooth' : 'triangle';
+        o.frequency.value = freq * m;
+        o.detune.value = (i - 1) * 9;
+        o.connect(f);
+        this._play(o, t, t + dur + 0.05, dest);
+      });
+    },
+    // Campana brillante
+    bell(t, dest, freq, vol) {
+      const c = this.ctx;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      g.connect(dest);
+      [1, 2.76, 5.4].forEach((m, i) => {
+        const o = c.createOscillator();
+        const og = c.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq * m;
+        og.gain.value = i === 0 ? 1 : 0.25 / i;
+        o.connect(og);
+        og.connect(g);
+        this._play(o, t, t + 1.15, dest);
+      });
+    },
+
     fanfare(big) {
       if (!this.isRunning()) return;
       const t = this.ctx.currentTime + 0.05;
@@ -1368,6 +1430,7 @@
       levels: {},
       secretUnlocked: false,
       secretCleared: false,
+      introSeen: false,
       muted: false,
       offsetMs: 0
     };
@@ -1397,6 +1460,7 @@
         p.secretUnlocked = !!d.secretUnlocked;
         p.secretCleared = !!d.secretCleared;
         p.muted = !!d.muted;
+        p.introSeen = !!d.introSeen;
         p.offsetMs = clamp(parseInt(d.offsetMs, 10) || 0, -250, 250);
         if (d.levels && typeof d.levels === 'object') {
           LEVELS.forEach((l) => {
@@ -1456,6 +1520,8 @@
      7. DOM Y PANTALLAS
      ========================================================= */
   const screens = {
+    gate: $('screen-gate'),
+    story: $('screen-story'),
     title: $('screen-title'),
     map: $('screen-map'),
     options: $('screen-options'),
@@ -1492,6 +1558,7 @@
   let currentScreen = 'title';
 
   buddyTitle.innerHTML = characterSVG('pum');
+  $('buddy-gate').innerHTML = characterSVG('pum');
 
   function showScreen(name) {
     currentScreen = name;
@@ -1742,7 +1809,7 @@
       return;
     }
     clearTimeout(resetArmedTimer);
-    const keep = { muted: progress.muted, offsetMs: progress.offsetMs };
+    const keep = { muted: progress.muted, offsetMs: progress.offsetMs, introSeen: progress.introSeen };
     progress = Object.assign(defaultProgress(), keep);
     Store.save(progress);
     renderOptions();
@@ -1765,6 +1832,238 @@
     progress.muted = AudioEngine.muted;
     Store.save(progress);
     updateSoundButtons();
+  }
+
+  /* =========================================================
+     7b. HISTORIA (cinemática de introducción)
+     Se reproduce sola la primera vez que se abre el juego.
+     Todo es SVG + CSS + Web Audio, sincronizado con el reloj de la
+     música: 120 BPM, compases de 2 segundos.
+     ========================================================= */
+  const STORY_BEAT = 0.5;
+  const STORY_BAR = 2;
+  const STORY_END = 28.6; // aparece el botón final
+  const STORY_SCENES = [
+    { id: 's1', at: 0, bob: 1, face: '', text: 'En Beat City, todo se movía al ritmo.' },
+    { id: 's2', at: 4, bob: 0, face: 'is-sad', text: 'Hasta que una noche llegó el Gran Silencio.' },
+    { id: 's3', at: 8, bob: 0, face: 'is-shock', text: 'Y se llevó los cinco ritmos del mundo.' },
+    { id: 's4', at: 12, bob: 0, face: '', text: 'Pero a Pum le quedó una baqueta que todavía latía...' },
+    { id: 's5', at: 16, bob: 1, face: 'is-victory', text: 'Con sus amigos viajará por cinco mundos para recuperarlos.' },
+    { id: 's6', at: 22, bob: 1, face: 'is-shock', text: 'Y dicen que quien toque a la perfección encontrará un sexto ritmo...' },
+    { id: 's7', at: 26, bob: 1, face: 'is-victory', text: '' }
+  ];
+
+  // Nube con ojos: el Gran Silencio
+  function cloudSVG() {
+    const rnd = mulberry(77);
+    let blobs = '';
+    for (let i = 0; i < 16; i++) {
+      blobs += `<circle cx="${(rnd() * 600).toFixed(0)}" cy="${(40 + rnd() * 150).toFixed(0)}" r="${(60 + rnd() * 70).toFixed(0)}"/>`;
+    }
+    let specks = '';
+    for (let i = 0; i < 60; i++) {
+      specks += `<rect x="${(rnd() * 600).toFixed(0)}" y="${(60 + rnd() * 200).toFixed(0)}" width="${(4 + rnd() * 10).toFixed(0)}" height="2" fill="#8E86A8" opacity="${(0.2 + rnd() * 0.5).toFixed(2)}"/>`;
+    }
+    return `<svg viewBox="0 0 600 320" preserveAspectRatio="none" aria-hidden="true">
+      <g fill="#221D36" transform="translate(0 22)">${blobs}</g>
+      <g fill="#36304F">${blobs}</g>
+      ${specks}
+      <g fill="#FF5E57"><ellipse cx="250" cy="200" rx="9" ry="6"/><ellipse cx="350" cy="200" rx="9" ry="6"/></g>
+      <path d="M270 228 Q300 218 330 228" fill="none" stroke="#FF5E57" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  // Música de la historia
+  function scheduleStoryMusic(t0) {
+    const A = AudioEngine;
+    const bus = A.runBus;
+    if (!bus) return;
+    const bar = (i) => t0 + i * STORY_BAR;
+    const groove = (i, mus, chord, intensity) =>
+      Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus, chord, intensity, final: false, fill: false }, bar(i));
+
+    // 1. La ciudad suena
+    groove(0, MUS.arcade, CH.am[0], 3);
+    groove(1, MUS.arcade, CH.am[1], 3);
+    // 2. El Gran Silencio: la música se apaga
+    A.drop(bar(2), bus);
+    A.drone(bar(2) + 0.5, bus, 55, 7.5);
+    // 3. Los cinco ritmos se van volando
+    [1318.5, 1174.66, 987.77, 880, 783.99].forEach((f, i) => A.bell(bar(4) + 0.25 + i * 0.4, bus, f, 0.12));
+    // 4. Un latido
+    for (let k = 0; k < 4; k++) {
+      const t = bar(6) + k;
+      A.kick(t, bus, 0.35 + k * 0.13);
+      A.kick(t + 0.22, bus, 0.25 + k * 0.1);
+    }
+    A.pad(bar(7), bus, CH.am[0].tones, 2);
+    A.bell(bar(7) + 1.5, bus, 1760, 0.05);
+    // 5. Vuelve el ritmo, poco a poco, mientras llegan los amigos
+    groove(8, MUS.arcade, CH.am[0], 1);
+    groove(9, MUS.arcade, CH.am[1], 2);
+    groove(10, MUS.final, CH.am[2], 3);
+    [523.25, 659.25, 783.99, 880, 1046.5].forEach((f, i) => A.bell(bar(8) + i * STORY_BEAT, bus, f, 0.07));
+    // 6. El misterio del sexto ritmo
+    Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus: MUS.space, chord: CH.em[0], intensity: 3, final: false, fill: false }, bar(11));
+    Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus: MUS.space, chord: CH.em[3], intensity: 3, final: false, fill: true }, bar(12));
+    [0.5, 1.25, 2, 2.75, 3.5].forEach((d, i) => A.bell(bar(11) + d, bus, [1567.98, 1760, 2093, 1760, 2637][i], 0.05));
+    // 7. ¡BEAT RUSH!
+    A.crash(bar(13), bus);
+    groove(13, MUS.final, CH.am[0], 3);
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => A.lead(bar(14) - 0.45 + i * 0.09, bus, f, 0.35, 'square', 0.06));
+    const AM = [220, 277.18, 329.63];
+    A.kick(bar(14), bus, 1);
+    A.crash(bar(14), bus);
+    A.stab(bar(14), bus, AM, 1.3);
+    A.pad(bar(14), bus, AM.map((f) => f * 2), 2.4);
+    A.bass(bar(14), bus, 110, 1.8, 'sawtooth');
+  }
+
+  const Story = {
+    el: $('story'),
+    raf: 0,
+    t0: 0,
+    perf0: 0,
+    useAudio: false,
+    sceneIdx: -1,
+    done: false,
+    token: 0,
+
+    build() {
+      if (!sceneCache.arcade) sceneCache.arcade = sceneSVG('arcade');
+      const friends = ['bolt', 'miso', 'nova', 'kage', 'draco'];
+      const ox = [14, 32, 50, 68, 86];
+      const oy = [6, 0, -3, 0, 6];
+      const odx = [-120, -60, 0, 60, 120];
+      const orbs = MAIN_LEVELS.map((l, i) =>
+        `<div class="st-orb" style="--i:${i};--c:${l.color};--x:${ox[i]}%;--y:${oy[i]}%;--dx:${odx[i]}px"><i></i></div>`).join('');
+      const fx = [2, 21, 40, 59, 78];
+      const crew = friends.map((f, i) =>
+        `<div class="buddy st-who st-friend" style="--i:${i};--x:${fx[i]}%">${characterSVG(f)}</div>`).join('');
+      this.el.innerHTML = `
+        <div class="st-bg">${sceneCache.arcade}</div>
+        <div class="st-col">
+          <div class="st-cloud"><div class="st-cloud-inner">${cloudSVG()}</div></div>
+          ${orbs}
+          <div class="st-who st-lumi">${characterSVG('lumi')}<span class="st-q">?</span></div>
+          ${crew}
+          <div class="buddy st-who st-pum">${characterSVG('pum')}<span class="st-glow"></span></div>
+          <div class="st-title">
+            <div class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></div>
+            <p class="st-moral">Toca al ritmo y devuélvele la música al mundo.</p>
+          </div>
+          <p class="st-cap" aria-live="polite"></p>
+          <button class="btn-primary st-play" type="button">¡A JUGAR!</button>
+        </div>
+        <div class="st-flash"></div>`;
+      this.el.querySelector('.st-play').addEventListener('click', () => this.finish());
+    },
+
+    async play() {
+      if (currentScreen === 'story') return;
+      const token = ++this.token;
+      this.stop();
+      this.build();
+      this.el.className = 'story';
+      this.el.style.setProperty('--bob', '1');
+      this.sceneIdx = -1;
+      this.done = false;
+      blurActive();
+      showScreen('story');
+
+      // Dentro del gesto del usuario: desbloquea el audio en móviles
+      const ok = await AudioEngine.unlock();
+      if (token !== this.token || currentScreen !== 'story') return;
+      this.useAudio = ok;
+      if (ok) {
+        AudioEngine.startRun();
+        this.t0 = AudioEngine.ctx.currentTime + 0.3;
+        scheduleStoryMusic(this.t0);
+      } else {
+        this.perf0 = performance.now() + 300;
+      }
+      const loop = () => {
+        this.raf = requestAnimationFrame(loop);
+        this.tick();
+      };
+      this.raf = requestAnimationFrame(loop);
+    },
+
+    time() {
+      if (this.useAudio) {
+        const c = AudioEngine.ctx;
+        const lat = Math.min(0.35, (c.baseLatency || 0) + (c.outputLatency || 0));
+        return c.currentTime - this.t0 - lat;
+      }
+      return (performance.now() - this.perf0) / 1000;
+    },
+
+    tick() {
+      const t = this.time();
+      let idx = -1;
+      for (let i = 0; i < STORY_SCENES.length; i++) if (t >= STORY_SCENES[i].at) idx = i;
+      while (this.sceneIdx < idx) this.enter(++this.sceneIdx);
+      const p = t >= 0 ? (t / STORY_BEAT) % 1 : 0;
+      const amp = reducedMotion ? 0.25 : 1;
+      this.el.style.setProperty('--pulse', (t >= 0 ? Math.pow(1 - p, 3) * amp : 0).toFixed(3));
+      this.el.style.setProperty('--lift', (t >= 0 ? Math.sin(p * Math.PI) * 5 * amp : 0).toFixed(2));
+      if (!this.done && t >= STORY_END) {
+        this.done = true;
+        this.el.classList.add('is-done');
+        const b = this.el.querySelector('.st-play');
+        try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); }
+      }
+    },
+
+    enter(i) {
+      const sc = STORY_SCENES[i];
+      this.el.classList.add('at-' + sc.id);
+      this.el.style.setProperty('--bob', String(sc.bob));
+      const pum = this.el.querySelector('.st-pum');
+      pum.classList.remove('is-sad', 'is-shock', 'is-victory');
+      if (sc.face) pum.classList.add(sc.face);
+      if (sc.id === 's7') this.el.querySelectorAll('.st-friend').forEach((f) => f.classList.add('is-victory'));
+      const cap = this.el.querySelector('.st-cap');
+      cap.textContent = sc.text;
+      cap.classList.remove('is-on');
+      void cap.offsetWidth;
+      if (sc.text) cap.classList.add('is-on');
+      if (sc.id === 's2') this.flash('is-dark');
+      if (sc.id === 's5' || sc.id === 's7') this.flash('is-light');
+    },
+
+    flash(cls) {
+      const f = this.el.querySelector('.st-flash');
+      if (!f) return;
+      f.className = 'st-flash';
+      void f.offsetWidth;
+      f.classList.add(cls);
+    },
+
+    stop() {
+      if (this.raf) cancelAnimationFrame(this.raf);
+      this.raf = 0;
+      AudioEngine.stopRun();
+    },
+
+    // Termina (o se salta) la historia y lleva a la pantalla principal
+    finish() {
+      if (currentScreen !== 'story') return;
+      this.token++;
+      this.stop();
+      progress.introSeen = true;
+      Store.save(progress);
+      renderTitle();
+      showScreen('title');
+      this.el.innerHTML = '';
+    }
+  };
+
+  function skipGate() {
+    progress.introSeen = true;
+    Store.save(progress);
+    renderTitle();
+    showScreen('title');
   }
 
   /* =========================================================
@@ -2685,6 +2984,19 @@
   window.addEventListener('keydown', (e) => {
     const isSpace = e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar';
     const onButton = document.activeElement && document.activeElement.tagName === 'BUTTON';
+    if (currentScreen === 'story') {
+      if (e.key === 'Escape') Story.finish();
+      return;
+    }
+    if (currentScreen === 'gate') {
+      if (isSpace && !onButton) {
+        e.preventDefault();
+        if (!e.repeat) Story.play();
+      } else if (e.key === 'Escape') {
+        skipGate();
+      }
+      return;
+    }
     if (isSpace && state.phase === 'playing') {
       e.preventDefault();
       if (!e.repeat) handleTap(eventTime(e));
@@ -2719,6 +3031,11 @@
   });
 
   $('btn-map').addEventListener('click', () => openMap());
+  $('btn-gate-start').addEventListener('click', () => Story.play());
+  $('btn-gate-skip').addEventListener('click', () => skipGate());
+  $('btn-title-story').addEventListener('click', () => Story.play());
+  $('opt-story').addEventListener('click', () => Story.play());
+  $('btn-story-skip').addEventListener('click', () => Story.finish());
   $('btn-options').addEventListener('click', () => { renderOptions(); showScreen('options'); });
   $('map-back').addEventListener('click', () => { renderTitle(); showScreen('title'); });
   $('opt-back').addEventListener('click', () => { renderTitle(); showScreen('title'); });
@@ -2737,6 +3054,7 @@
 
   // Si el jugador cambia de app o pestaña, la partida se cancela limpiamente
   document.addEventListener('visibilitychange', () => {
+    if (document.hidden && currentScreen === 'story') Story.finish();
     if (document.hidden && (state.phase === 'playing' || state.phase === 'starting')) leaveToMap();
   });
   window.addEventListener('pagehide', () => {
@@ -2769,5 +3087,5 @@
   state.level = LEVELS[0];
   updateSoundButtons();
   renderTitle();
-  showScreen('title');
+  showScreen(progress.introSeen ? 'title' : 'gate');
 })();

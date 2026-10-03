@@ -18,8 +18,26 @@
 <body>
   <div id="app">
 
+    <!-- ================= BIENVENIDA (sólo la primera vez) ================= -->
+    <section id="screen-gate" class="screen screen--gate" aria-labelledby="gate-logo">
+      <div class="gate-inner">
+        <h1 id="gate-logo" class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></h1>
+        <p class="tagline">Una historia de ritmo</p>
+        <div id="buddy-gate" class="buddy buddy--hero" aria-hidden="true"></div>
+        <button id="btn-gate-start" class="btn-primary" type="button">EMPEZAR</button>
+        <p class="hint">🔊 Sube el volumen: la historia tiene música.</p>
+        <button id="btn-gate-skip" class="btn-link" type="button">Saltar historia</button>
+      </div>
+    </section>
+
+    <!-- ================= HISTORIA ================= -->
+    <section id="screen-story" class="screen screen--story" aria-label="Historia de Beat Rush">
+      <div id="story" class="story"></div>
+      <button id="btn-story-skip" class="story-skip" type="button">Saltar ⏭</button>
+    </section>
+
     <!-- ================= PANTALLA PRINCIPAL ================= -->
-    <section id="screen-title" class="screen screen--title is-active" aria-labelledby="logo">
+    <section id="screen-title" class="screen screen--title" aria-labelledby="logo">
       <div class="corner">
         <button class="icon-btn btn-sound" type="button" aria-pressed="false" aria-label="Silenciar sonido">
           <svg class="ico ico-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -36,6 +54,7 @@
           <button id="btn-options" class="btn-secondary" type="button">OPCIONES</button>
         </div>
         <p class="hint">Toca la pantalla al ritmo. En computadora, usa la barra espaciadora.</p>
+        <button id="btn-title-story" class="btn-link" type="button">Ver la historia</button>
       </div>
     </section>
 
@@ -98,6 +117,14 @@
             <li><span class="dot dot--quarter"></span>Golpe rapidísimo (semicorchea)</li>
           </ul>
           <p>Saca 50 o más para desbloquear el siguiente nivel. Consigue 100 en los cinco niveles para descubrir el secreto.</p>
+        </div>
+
+        <div class="opt-group opt-row">
+          <div>
+            <h3>Historia</h3>
+            <p>Vuelve a ver la introducción del juego.</p>
+          </div>
+          <button id="opt-story" class="btn-secondary btn-small" type="button">VER</button>
         </div>
 
         <div class="opt-group">
