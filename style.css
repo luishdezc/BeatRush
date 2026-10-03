@@ -2016,6 +2016,186 @@ h2, h3 { font-weight: 700; }
   .boss .boss-cloud { animation: none !important; }
 }
 
+
+/* =========================================================
+   CINEMÁTICA FINAL
+   ========================================================= */
+.btn-secondary:disabled {
+  background: #2E2152;
+  color: rgba(181, 166, 218, 0.6);
+  box-shadow: 0 5px 0 #1E1240;
+  cursor: not-allowed;
+}
+
+.film-ending .st-bg-a { filter: saturate(0.8) brightness(0.75); }
+.film-ending .st-bg-b { opacity: 0; transition: opacity 1.6s ease, filter 1.2s ease; }
+.film-ending.at-e3 .st-bg-b { opacity: 1; }
+.film-ending.at-e5 .st-bg-b { filter: brightness(0.6) saturate(0.7); }
+.film-ending.at-e6 .st-bg-b { filter: none; }
+.film-ending.at-e7 .st-bg-b { filter: brightness(0.45) saturate(0.6); }
+.film-ending.at-e8 .st-bg-b { filter: brightness(0.8) saturate(1.2); }
+
+/* El Gran Silencio tiembla y estalla */
+.en-boss {
+  position: absolute;
+  top: 9%;
+  left: -6%;
+  right: -6%;
+  height: 34%;
+  pointer-events: none;
+}
+
+.en-boss svg { width: 100%; height: 100%; }
+.en-boss-in { width: 100%; height: 100%; animation: en-tremble 0.12s linear infinite alternate; }
+.at-e1 .en-boss { animation: en-shrink 4s ease-in forwards; }
+.at-e2 .en-boss { animation: en-burst-out 0.7s ease-in forwards; }
+
+@keyframes en-tremble {
+  from { transform: translate(-3px, 1px); }
+  to { transform: translate(3px, -1px) scale(0.985); }
+}
+
+@keyframes en-shrink {
+  from { transform: scale(1); }
+  to { transform: scale(0.82); }
+}
+
+@keyframes en-burst-out {
+  0% { transform: scale(0.82); opacity: 1; filter: brightness(1); }
+  40% { transform: scale(1); filter: brightness(2.4); }
+  100% { transform: scale(0.2); opacity: 0; filter: brightness(3); }
+}
+
+.en-burst {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.en-burst span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 12px currentColor;
+}
+
+.at-e2 .en-burst span { animation: note-fly 1.9s ease-out forwards; animation-delay: calc(0.25s + var(--i) * 0.03s); }
+
+@keyframes note-fly {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--r)) scale(1.3); }
+}
+
+/* Los cinco ritmos regresan */
+.en-orb { opacity: 0; }
+.at-e3 .en-orb { animation: orb-back 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) forwards; animation-delay: calc(var(--i) * 0.4s + 0.2s); }
+
+.en-friend {
+  left: var(--x);
+  bottom: 31%;
+  width: 18%;
+  max-width: 100px;
+}
+
+.at-e7 .st-lumi { animation: lumi-in 1.4s ease-out forwards; }
+.at-e8 .st-lumi { animation: lumi-out 0.4s ease-in forwards; }
+
+/* La nubecita */
+.en-nubi {
+  position: absolute;
+  left: calc(50% + clamp(56px, 17vw, 92px));
+  bottom: calc(4% + 40px);
+  width: clamp(84px, 24vw, 124px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.en-nubi svg { display: block; width: 100%; height: auto; overflow: visible; }
+.at-e5 .en-nubi { animation: nubi-in 1.6s ease-out forwards; }
+
+@keyframes nubi-in {
+  from { opacity: 0; transform: translate(70px, -260px) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+.nubi-body { fill: #7C7896; transition: fill 1s ease; }
+.nubi-happy { display: none; }
+.en-nubi.is-friend .nubi-body { fill: #F4F0FF; }
+.en-nubi.is-friend .nubi-sad { display: none; }
+.en-nubi.is-friend .nubi-happy { display: inline; }
+.en-nubi-in { animation: nubi-float 2s ease-in-out infinite alternate; }
+.en-nubi.is-friend .en-nubi-in {
+  animation: none;
+  transform: translateY(calc(var(--lift) * -1.6px)) scale(calc(1 + 0.05 * var(--pulse)), calc(1 - 0.05 * var(--pulse)));
+}
+
+@keyframes nubi-float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px); }
+}
+
+/* ¡Gracias por jugar! */
+.en-thanks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: max(6%, 60px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.en-thanks .logo { font-size: clamp(40px, 12vw, 68px); }
+.en-thanks .logo span,
+.en-ty,
+.en-credit { opacity: 0; }
+
+.at-e8 .en-thanks .logo span:first-child { animation: st-slam 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) forwards; }
+.at-e8 .en-thanks .logo span:last-child { animation: st-slam 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) 0.25s forwards; }
+
+.en-ty {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 8vw, 44px);
+  line-height: 1.05;
+  color: var(--yellow);
+  text-shadow: 3px 3px 0 var(--pink), 0 0 24px rgba(255, 210, 63, 0.5);
+}
+
+.at-e8 .en-ty { animation: st-slam 0.4s cubic-bezier(0.2, 1.3, 0.4, 1) 0.7s forwards; }
+
+.en-credit {
+  max-width: 26ch;
+  font-size: clamp(15px, 4.4vw, 19px);
+  font-weight: 700;
+  color: var(--mint);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.at-e8 .en-credit { animation: cap-fade 0.5s ease-out 1.5s forwards; }
+.film-ending .confetti { z-index: 0; }
+
+@media (max-height: 600px) {
+  .en-thanks { top: 54px; gap: 4px; }
+  .en-thanks .logo { font-size: 36px; }
+  .en-ty { font-size: 24px; }
+  .en-credit { font-size: 14px; }
+  .film-ending.at-e8 .en-orb { opacity: 0.35; }
+  .en-nubi { width: 76px; bottom: calc(4% + 24px); }
+}
+
 /* ---------- Pantallas bajitas ---------- */
 @media (max-height: 600px) {
   .logo { font-size: 46px; }

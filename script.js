@@ -1629,6 +1629,7 @@
       secretUnlocked: false,
       secretCleared: false,
       introSeen: false,
+      endingSeen: false,
       muted: false,
       offsetMs: 0
     };
@@ -1668,6 +1669,7 @@
         p.secretCleared = !!d.secretCleared;
         p.muted = !!d.muted;
         p.introSeen = !!d.introSeen;
+        p.endingSeen = !!d.endingSeen;
         p.offsetMs = clamp(parseInt(d.offsetMs, 10) || 0, -250, 250);
         if (d.levels && typeof d.levels === 'object') {
           LEVELS.forEach((l) => {
@@ -2118,7 +2120,16 @@
   const optReset = $('opt-reset');
   let resetArmedTimer = 0;
 
+  function canSeeEnding() {
+    return devUnlock || progress.endingSeen || rec(MAIN_LEVELS[MAIN_LEVELS.length - 1]).best >= PASS_SCORE;
+  }
+
   function renderOptions() {
+    const endBtn = $('opt-ending');
+    endBtn.disabled = !canSeeEnding();
+    $('opt-ending-note').textContent = canSeeEnding()
+      ? 'Vuelve a ver cómo termina la historia.'
+      : 'Se desbloquea al derrotar al jefe del Mundo 5.';
     optSound.setAttribute('aria-checked', AudioEngine.muted ? 'false' : 'true');
     syncRange.value = String(progress.offsetMs);
     syncValue.textContent = (progress.offsetMs > 0 ? '+' : '') + progress.offsetMs + ' ms';
@@ -2263,54 +2274,249 @@
     A.bass(bar(14), bus, 110, 1.8, 'sawtooth');
   }
 
+  /* ---------------- Final del juego ----------------
+     Se ve al derrotar al jefe del Mundo 5 por primera vez (antes del
+     nivel secreto). Misma técnica que la introducción. */
+  const ENDING_END = 33; // aparece el botón final
+  const ENDING_SCENES = [
+    { id: 'e1', at: 0, bob: 0, face: 'is-shock', text: 'El último acorde retumbó en el Gran Final...' },
+    { id: 'e2', at: 4, bob: 0, face: 'is-shock', text: '...y el Gran Silencio se deshizo en mil notas.' },
+    { id: 'e3', at: 8, bob: 1, face: 'is-victory', text: 'Los cinco ritmos volvieron a casa.' },
+    { id: 'e4', at: 12, bob: 1, face: 'is-victory', text: 'Beat City volvió a sonar, más fuerte que nunca.' },
+    { id: 'e5', at: 16, bob: 0, face: 'is-sad', text: 'Entre las notas quedó una nubecita gris. El Gran Silencio sólo quería que alguien lo escuchara.' },
+    { id: 'e6', at: 20, bob: 1, face: 'is-victory', text: 'Pum le compartió su ritmo. Desde entonces, hasta los silencios forman parte de la música.' },
+    { id: 'e7', at: 24, bob: 1, face: 'is-shock', text: 'Y dicen que un sexto ritmo brilla a lo lejos, esperando a quien consiga todas las estrellas...' },
+    { id: 'e8', at: 28, bob: 1, face: 'is-victory', text: '' }
+  ];
+
+  // La nubecita (el Gran Silencio, ya sin poder)
+  function nubiSVG() {
+    return `<svg viewBox="0 0 140 100" aria-hidden="true">
+      <g class="nubi-body">
+        <circle cx="40" cy="58" r="28"/><circle cx="70" cy="44" r="34"/><circle cx="102" cy="58" r="26"/>
+        <rect x="30" y="56" width="82" height="30" rx="15"/>
+      </g>
+      <g class="nubi-sad">
+        <ellipse cx="58" cy="58" rx="4" ry="5.5" fill="#1A0F33"/><ellipse cx="84" cy="58" rx="4" ry="5.5" fill="#1A0F33"/>
+        <path d="M62 76 Q71 70 80 76" fill="none" stroke="#1A0F33" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M52 50 L62 53 M90 50 L80 53" stroke="#1A0F33" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <g class="nubi-happy">
+        <path d="M52 60 Q58 51 64 60 M78 60 Q84 51 90 60" fill="none" stroke="#1A0F33" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M62 70 Q71 81 80 70 Z" fill="#1A0F33"/>
+        <ellipse cx="48" cy="70" rx="6" ry="4" fill="#FF8FB8"/><ellipse cx="94" cy="70" rx="6" ry="4" fill="#FF8FB8"/>
+      </g>
+    </svg>`;
+  }
+
+  function scheduleEndingMusic(t0) {
+    const A = AudioEngine;
+    const bus = A.runBus;
+    if (!bus) return;
+    const bar = (i) => t0 + i * STORY_BAR;
+    const groove = (i, mus, chord, intensity, fill) =>
+      Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus, chord, intensity, final: false, fill: !!fill }, bar(i));
+    const C = CH.c;
+
+    // 1. El último acorde: la tensión del jefe y un redoble que acelera
+    groove(0, MUS.finalboss, tr(CH.cm, -2)[0], 3);
+    for (let k = 0; k < 4; k++) A.clap(bar(1) + k * 0.25, bus, 0.35 + k * 0.05);
+    for (let k = 0; k < 8; k++) A.clap(bar(1) + 1 + k * 0.125, bus, 0.5 + k * 0.05);
+    A.drone(bar(1), bus, 49, 2.2);
+    // 2. El Gran Silencio estalla en notas
+    A.kick(bar(2), bus, 1);
+    A.crash(bar(2), bus);
+    [2093, 1760, 1567.98, 1318.5, 1174.66, 1046.5, 880, 783.99, 659.25, 523.25]
+      .forEach((f, i) => A.bell(bar(2) + 0.1 + i * 0.12, bus, f, 0.08));
+    A.pad(bar(2) + 0.5, bus, C[0].tones, 3.5);
+    // 3. Los cinco ritmos regresan (una campana por esfera)
+    A.pad(bar(4), bus, C[3].tones, 2);
+    [783.99, 880, 987.77, 1174.66, 1318.5].forEach((f, i) => A.bell(bar(4) + 0.8 + i * 0.4, bus, f, 0.12));
+    groove(5, MUS.arcade, C[3], 1);
+    // 4. Beat City suena de nuevo
+    groove(6, MUS.final, C[0], 3);
+    groove(7, MUS.final, C[1], 3, true);
+    // 5. La nubecita: calma y su ritmo, tímido
+    A.pad(bar(8), bus, C[2].tones, 4);
+    A.bell(bar(8) + 0.5, bus, 659.25, 0.05);
+    [0, 1, 2, 2.5, 3].forEach((pos, i) => A.cue(bar(9) + pos * STORY_BEAT, bus, 130.81 * [2, 2.5, 3, 2.5, 2][i]));
+    // 6. Todos juntos... con silencios
+    groove(10, MUS.arcade, C[0], 3);
+    [0, 1.5, 3].forEach((pos) => {
+      const t = bar(11) + pos * STORY_BEAT;
+      A.kick(t, bus, 1);
+      A.stab(t, bus, C[1].tones, 0.3);
+      A.cue(t, bus, 261.63);
+    });
+    // 7. El sexto ritmo
+    Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus: MUS.space, chord: CH.em[0], intensity: 3, final: false, fill: false }, bar(12));
+    Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus: MUS.space, chord: CH.em[3], intensity: 3, final: false, fill: true }, bar(13));
+    [0.5, 1.25, 2, 2.75, 3.5].forEach((d, i) => A.bell(bar(12) + d, bus, [1567.98, 1760, 2093, 1760, 2637][i], 0.05));
+    // 8. ¡Gracias por jugar!
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => A.lead(bar(14) - 0.45 + i * 0.09, bus, f, 0.35, 'square', 0.06));
+    A.kick(bar(14), bus, 1);
+    A.crash(bar(14), bus);
+    groove(14, MUS.prismB, C[0], 3);
+    groove(15, MUS.prismB, C[1], 3);
+    groove(16, MUS.prismB, C[3], 3, true);
+    const CM = [261.63, 329.63, 392];
+    A.kick(bar(17), bus, 1);
+    A.crash(bar(17), bus);
+    A.stab(bar(17), bus, CM, 1.4);
+    A.pad(bar(17), bus, CM.map((f) => f * 2), 2.6);
+    A.bass(bar(17), bus, 65.41, 2, 'sawtooth');
+  }
+
+  function storyOrbs(cls) {
+    const ox = [14, 32, 50, 68, 86];
+    const oy = [6, 0, -3, 0, 6];
+    const odx = [-120, -60, 0, 60, 120];
+    return MAIN_LEVELS.filter((l) => l.boss).map((l, i) =>
+      `<div class="st-orb ${cls}" style="--i:${i};--c:${l.color};--x:${ox[i]}%;--y:${oy[i]}%;--dx:${odx[i]}px"><i></i></div>`).join('');
+  }
+
+  function storyCrew(cls) {
+    const fx = [2, 21, 40, 59, 78];
+    return ['bolt', 'miso', 'nova', 'kage', 'draco'].map((f, i) =>
+      `<div class="buddy st-who ${cls}" style="--i:${i};--x:${fx[i]}%">${characterSVG(f)}</div>`).join('');
+  }
+
+  const FILMS = {
+    intro: {
+      scenes: STORY_SCENES,
+      end: STORY_END,
+      music: scheduleStoryMusic,
+      button: '¡A JUGAR!',
+      build() {
+        if (!sceneCache.arcade) sceneCache.arcade = sceneSVG('arcade');
+        return `
+          <div class="st-bg">${sceneCache.arcade}</div>
+          <div class="st-col">
+            <div class="st-cloud"><div class="st-cloud-inner">${cloudSVG()}</div></div>
+            ${storyOrbs('')}
+            <div class="st-who st-lumi">${characterSVG('lumi')}<span class="st-q">?</span></div>
+            ${storyCrew('st-friend')}
+            <div class="buddy st-who st-pum">${characterSVG('pum')}<span class="st-glow"></span></div>
+            <div class="st-title">
+              <div class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></div>
+              <p class="st-moral">Toca al ritmo y devuélvele la música al mundo.</p>
+            </div>
+            <p class="st-cap" aria-live="polite"></p>
+            <button class="btn-primary st-play" type="button">${this.button}</button>
+          </div>
+          <div class="st-flash"></div>`;
+      },
+      enter(story, sc) {
+        if (sc.id === 's7') story.el.querySelectorAll('.st-friend').forEach((f) => f.classList.add('is-victory'));
+        if (sc.id === 's2') story.flash('is-dark');
+        if (sc.id === 's5' || sc.id === 's7') story.flash('is-light');
+      },
+      events: [],
+      done() {
+        progress.introSeen = true;
+        Store.save(progress);
+        renderTitle();
+        showScreen('title');
+      }
+    },
+
+    ending: {
+      scenes: ENDING_SCENES,
+      end: ENDING_END,
+      music: scheduleEndingMusic,
+      button: 'CONTINUAR',
+      build() {
+        if (!sceneCache.stage) sceneCache.stage = sceneSVG('stage');
+        if (!sceneCache.arcade) sceneCache.arcade = sceneSVG('arcade');
+        const glyphs = ['♪', '♫', '♩', '♬'];
+        const cols = ['#FF4D8D', '#3DF5C2', '#7CC8FF', '#FF7EDB', '#FFD23F'];
+        let notes = '';
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const d = 130 + (i % 3) * 45;
+          notes += `<span style="--i:${i};--dx:${(Math.cos(a) * d).toFixed(0)}px;--dy:${(Math.sin(a) * d).toFixed(0)}px;--r:${(i * 47) % 360}deg;color:${cols[i % cols.length]}">${glyphs[i % glyphs.length]}</span>`;
+        }
+        return `
+          <div class="st-bg st-bg-a">${sceneCache.stage}</div>
+          <div class="st-bg st-bg-b">${sceneCache.arcade}</div>
+          <div class="confetti en-confetti"></div>
+          <div class="st-col">
+            <div class="en-boss"><div class="en-boss-in">${cloudSVG()}</div></div>
+            <div class="en-burst">${notes}</div>
+            ${storyOrbs('en-orb')}
+            <div class="st-who st-lumi">${characterSVG('lumi')}<span class="st-q">?</span></div>
+            ${storyCrew('en-friend')}
+            <div class="buddy st-who st-pum">${characterSVG('pum')}</div>
+            <div class="en-nubi"><div class="en-nubi-in">${nubiSVG()}</div></div>
+            <div class="en-thanks">
+              <div class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></div>
+              <p class="en-ty">¡GRACIAS POR JUGAR!</p>
+              <p class="en-credit">Gracias por ayudar a Pum a devolverle la música a Beat City.</p>
+            </div>
+            <p class="st-cap" aria-live="polite"></p>
+            <button class="btn-primary st-play" type="button">${this.button}</button>
+          </div>
+          <div class="st-flash"></div>`;
+      },
+      enter(story, sc) {
+        const friends = story.el.querySelectorAll('.en-friend');
+        friends.forEach((f) => f.classList.remove('is-shock', 'is-victory', 'is-sad'));
+        if (sc.id === 'e1' || sc.id === 'e2') friends.forEach((f) => f.classList.add('is-shock'));
+        if (sc.id === 'e3' || sc.id === 'e4' || sc.id === 'e6' || sc.id === 'e8') friends.forEach((f) => f.classList.add('is-victory'));
+        if (sc.id === 'e2') story.flash('is-light');
+        if (sc.id === 'e6') {
+          story.el.querySelector('.en-nubi').classList.add('is-friend');
+          story.flash('is-light');
+        }
+        if (sc.id === 'e8') {
+          story.flash('is-light');
+          if (!reducedMotion) {
+            const cols = ['#FF5E57', '#FFB347', '#FFD23F', '#3DF5C2', '#7CC8FF', '#B07CFF', '#FF7EDB'];
+            let html = '';
+            for (let i = 0; i < 50; i++) {
+              html += `<i style="left:${(Math.random() * 100).toFixed(1)}%;background:${cols[i % cols.length]};animation-delay:${(Math.random() * 2.5).toFixed(2)}s;animation-duration:${(2.6 + Math.random() * 2).toFixed(2)}s"></i>`;
+            }
+            story.el.querySelector('.en-confetti').innerHTML = html;
+          }
+        }
+      },
+      // Pum le ofrece su baqueta a la nubecita
+      events: [
+        { at: 18.6, fn: (story) => story.el.querySelector('.st-pum').classList.add('is-swing') },
+        { at: 19.4, fn: (story) => story.el.querySelector('.st-pum').classList.remove('is-swing') }
+      ],
+      done() {
+        progress.endingSeen = true;
+        Store.save(progress);
+        openMap(isUnlocked(SECRET_LEVEL) ? 'S' : undefined);
+      }
+    }
+  };
+
+  // Reproductor de cinemáticas (introducción y final)
   const Story = {
     el: $('story'),
+    film: FILMS.intro,
     raf: 0,
     t0: 0,
     perf0: 0,
     useAudio: false,
     sceneIdx: -1,
+    eventIdx: 0,
     done: false,
     token: 0,
 
-    build() {
-      if (!sceneCache.arcade) sceneCache.arcade = sceneSVG('arcade');
-      const friends = ['bolt', 'miso', 'nova', 'kage', 'draco'];
-      const ox = [14, 32, 50, 68, 86];
-      const oy = [6, 0, -3, 0, 6];
-      const odx = [-120, -60, 0, 60, 120];
-      const orbs = MAIN_LEVELS.map((l, i) =>
-        `<div class="st-orb" style="--i:${i};--c:${l.color};--x:${ox[i]}%;--y:${oy[i]}%;--dx:${odx[i]}px"><i></i></div>`).join('');
-      const fx = [2, 21, 40, 59, 78];
-      const crew = friends.map((f, i) =>
-        `<div class="buddy st-who st-friend" style="--i:${i};--x:${fx[i]}%">${characterSVG(f)}</div>`).join('');
-      this.el.innerHTML = `
-        <div class="st-bg">${sceneCache.arcade}</div>
-        <div class="st-col">
-          <div class="st-cloud"><div class="st-cloud-inner">${cloudSVG()}</div></div>
-          ${orbs}
-          <div class="st-who st-lumi">${characterSVG('lumi')}<span class="st-q">?</span></div>
-          ${crew}
-          <div class="buddy st-who st-pum">${characterSVG('pum')}<span class="st-glow"></span></div>
-          <div class="st-title">
-            <div class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></div>
-            <p class="st-moral">Toca al ritmo y devuélvele la música al mundo.</p>
-          </div>
-          <p class="st-cap" aria-live="polite"></p>
-          <button class="btn-primary st-play" type="button">¡A JUGAR!</button>
-        </div>
-        <div class="st-flash"></div>`;
-      this.el.querySelector('.st-play').addEventListener('click', () => this.finish());
-    },
-
-    async play() {
+    async play(kind) {
       if (currentScreen === 'story') return;
       const token = ++this.token;
       this.stop();
-      this.build();
-      this.el.className = 'story';
+      this.film = FILMS[kind] || FILMS.intro;
+      this.el.innerHTML = this.film.build();
+      this.el.querySelector('.st-play').addEventListener('click', () => this.finish());
+      this.el.className = 'story film-' + (kind || 'intro');
       this.el.style.setProperty('--bob', '1');
       this.sceneIdx = -1;
+      this.eventIdx = 0;
       this.done = false;
       blurActive();
       showScreen('story');
@@ -2322,7 +2528,7 @@
       if (ok) {
         AudioEngine.startRun();
         this.t0 = AudioEngine.ctx.currentTime + 0.3;
-        scheduleStoryMusic(this.t0);
+        this.film.music(this.t0);
       } else {
         this.perf0 = performance.now() + 300;
       }
@@ -2344,14 +2550,17 @@
 
     tick() {
       const t = this.time();
+      const scenes = this.film.scenes;
       let idx = -1;
-      for (let i = 0; i < STORY_SCENES.length; i++) if (t >= STORY_SCENES[i].at) idx = i;
+      for (let i = 0; i < scenes.length; i++) if (t >= scenes[i].at) idx = i;
       while (this.sceneIdx < idx) this.enter(++this.sceneIdx);
+      const ev = this.film.events;
+      while (this.eventIdx < ev.length && t >= ev[this.eventIdx].at) ev[this.eventIdx++].fn(this);
       const p = t >= 0 ? (t / STORY_BEAT) % 1 : 0;
       const amp = reducedMotion ? 0.25 : 1;
       this.el.style.setProperty('--pulse', (t >= 0 ? Math.pow(1 - p, 3) * amp : 0).toFixed(3));
       this.el.style.setProperty('--lift', (t >= 0 ? Math.sin(p * Math.PI) * 5 * amp : 0).toFixed(2));
-      if (!this.done && t >= STORY_END) {
+      if (!this.done && t >= this.film.end) {
         this.done = true;
         this.el.classList.add('is-done');
         const b = this.el.querySelector('.st-play');
@@ -2360,20 +2569,18 @@
     },
 
     enter(i) {
-      const sc = STORY_SCENES[i];
+      const sc = this.film.scenes[i];
       this.el.classList.add('at-' + sc.id);
       this.el.style.setProperty('--bob', String(sc.bob));
       const pum = this.el.querySelector('.st-pum');
       pum.classList.remove('is-sad', 'is-shock', 'is-victory');
       if (sc.face) pum.classList.add(sc.face);
-      if (sc.id === 's7') this.el.querySelectorAll('.st-friend').forEach((f) => f.classList.add('is-victory'));
       const cap = this.el.querySelector('.st-cap');
       cap.textContent = sc.text;
       cap.classList.remove('is-on');
       void cap.offsetWidth;
       if (sc.text) cap.classList.add('is-on');
-      if (sc.id === 's2') this.flash('is-dark');
-      if (sc.id === 's5' || sc.id === 's7') this.flash('is-light');
+      this.film.enter(this, sc);
     },
 
     flash(cls) {
@@ -2390,16 +2597,14 @@
       AudioEngine.stopRun();
     },
 
-    // Termina (o se salta) la historia y lleva a la pantalla principal
+    // Termina (o se salta) la cinemática
     finish() {
       if (currentScreen !== 'story') return;
       this.token++;
       this.stop();
-      progress.introSeen = true;
-      Store.save(progress);
-      renderTitle();
-      showScreen('title');
+      const film = this.film;
       this.el.innerHTML = '';
+      film.done();
     }
   };
 
@@ -3319,7 +3524,10 @@
     const btnMap = $('btn-tomap');
     let primary;
     const nextMain = !level.secret && level.num < MAIN_LEVELS.length ? MAIN_LEVELS[level.num] : null;
-    if (outcome.passed && outcome.secretNew) {
+    if (outcome.passed && level.boss && level.world === WORLDS.length && !progress.endingSeen) {
+      // Primera victoria contra el último jefe: la cinemática del final va antes del secreto
+      primary = { label: 'VER EL FINAL', action: () => Story.play('ending') };
+    } else if (outcome.passed && outcome.secretNew) {
       primary = { label: 'NIVEL SECRETO', action: () => startLevel(SECRET_LEVEL.id) };
     } else if (outcome.passed && level.boss && nextMain && isUnlocked(nextMain)) {
       primary = { label: 'SIGUIENTE MUNDO', action: () => openMap(nextMain.id) };
@@ -3481,6 +3689,9 @@
   $('btn-gate-skip').addEventListener('click', () => skipGate());
   $('btn-title-story').addEventListener('click', () => Story.play());
   $('opt-story').addEventListener('click', () => Story.play());
+  $('opt-ending').addEventListener('click', () => {
+    if (canSeeEnding()) Story.play('ending');
+  });
   $('btn-story-skip').addEventListener('click', () => Story.finish());
   $('btn-options').addEventListener('click', () => { renderOptions(); showScreen('options'); });
   $('map-back').addEventListener('click', () => mapBack());
