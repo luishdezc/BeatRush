@@ -60,6 +60,7 @@
 
     <!-- ================= MAPA ================= -->
     <section id="screen-map" class="screen screen--map" aria-labelledby="map-title">
+      <div id="map-bg" class="map-bg" aria-hidden="true"></div>
       <header class="bar">
         <button id="map-back" class="icon-btn" type="button" aria-label="Volver al inicio">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -68,6 +69,7 @@
         <span id="map-stars" class="bar-stars"></span>
       </header>
       <div id="map-scroll" class="map-scroll">
+        <div id="map-lore" class="map-lore"></div>
         <div id="map-track" class="map-track">
           <svg id="map-path" class="map-path" aria-hidden="true"></svg>
         </div>
@@ -116,7 +118,8 @@
             <li><span class="dot dot--third"></span>Tresillo</li>
             <li><span class="dot dot--quarter"></span>Golpe rapidísimo (semicorchea)</li>
           </ul>
-          <p>Saca 50 o más para desbloquear el siguiente nivel. Consigue 100 en los cinco niveles para descubrir el secreto.</p>
+          <p>Hay 5 mundos con 5 niveles cada uno. Saca 50 o más para desbloquear el siguiente nivel. El quinto nivel de cada mundo es un jefe: cuando la pantalla se oscurezca, repite de oído el ritmo que acaba de tocar la nube.</p>
+          <p>Con 95 o más en un nivel ganas 5 estrellas. Junta las 125 para descubrir el nivel secreto.</p>
         </div>
 
         <div class="opt-group opt-row">
@@ -172,6 +175,13 @@
 
       <div id="stage" class="stage" role="button" aria-label="Zona de juego. Toca al ritmo.">
         <canvas id="lane" aria-hidden="true"></canvas>
+        <div id="boss" class="boss" aria-hidden="true" hidden>
+          <div class="boss-hp">
+            <span id="boss-name" class="boss-name">GRAN SILENCIO</span>
+            <div class="boss-bar"><i id="boss-fill"></i></div>
+          </div>
+          <div id="boss-cloud" class="boss-cloud"></div>
+        </div>
         <div id="buddy-game" class="buddy buddy--game" aria-hidden="true"></div>
         <div id="tag" class="tag" aria-hidden="true"></div>
         <div id="callout" class="callout" aria-live="polite">

@@ -29,7 +29,8 @@
   const DOUBLE_TAP_GRACE = 0.15;    // toque extra justo después de acertar: se ignora
   const RESULTS_INPUT_DELAY = 700;  // ms antes de aceptar ESPACIO en resultados
   const PASS_SCORE = 50;            // nota mínima (0–100) para desbloquear el siguiente nivel
-  const STORE_KEY = 'beat-rush-progress-v2';
+  const STORE_KEY = 'beat-rush-progress-v3';
+  const OLD_STORE_KEY = 'beat-rush-progress-v2';
 
   const COLORS = {
     pink: '#FF4D8D',
@@ -188,160 +189,306 @@
 
   const T = 1 / 3; // tresillo
 
-  /* NIVELES. Cada compás es una lista de posiciones (en pulsos, 0–3.x) */
-  const LEVELS = [
+  // Transporta una progresión N semitonos (para variar la tonalidad entre niveles)
+  const tr = (prog, semis) => prog.map((c) => {
+    const k = Math.pow(2, semis / 12);
+    return { root: c.root * k, tones: c.tones.map((f) => f * k) };
+  });
+
+  // Progresiones extra
+  CH.amAlt = [
+    { root: 110.00, tones: [220.00, 261.63, 329.63] },
+    { root: 98.00, tones: [196.00, 246.94, 293.66] },
+    { root: 87.31, tones: [174.61, 220.00, 261.63] },
+    { root: 82.41, tones: [164.81, 207.65, 246.94] }
+  ];
+  CH.f = [
+    { root: 87.31, tones: [174.61, 220.00, 261.63] },
+    { root: 130.81, tones: [196.00, 261.63, 329.63] },
+    { root: 73.42, tones: [146.83, 174.61, 220.00] },
+    { root: 116.54, tones: [233.08, 293.66, 349.23] }
+  ];
+  CH.d = [
+    { root: 73.42, tones: [146.83, 185.00, 220.00] },
+    { root: 110.00, tones: [220.00, 277.18, 329.63] },
+    { root: 123.47, tones: [246.94, 293.66, 369.99] },
+    { root: 98.00, tones: [196.00, 246.94, 293.66] }
+  ];
+  // Progresión oscura del Gran Silencio (Cm - Ab - Fm - G)
+  CH.cm = [
+    { root: 65.41, tones: [261.63, 311.13, 392.00] },
+    { root: 103.83, tones: [207.65, 261.63, 311.13] },
+    { root: 87.31, tones: [174.61, 207.65, 261.63] },
+    { root: 98.00, tones: [196.00, 246.94, 293.66] }
+  ];
+
+  // Grooves extra: cada mundo tiene tres (dos para niveles y uno para el jefe)
+  Object.assign(MUS, {
+    chip: {
+      grid: 16,
+      kick: 'X.....x.X.....x.', clap: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', open: '',
+      bass: 'R.OR.OR.R.OR.OF.', bassWave: 'square',
+      arp: '0212021202120212', leadWave: 'square', arpOct: 2, leadVol: 0.03, pad: false
+    },
+    arcboss: {
+      grid: 16,
+      kick: 'X..x..x.X..x..x.', clap: '....x.......x.x.', hat: 'xoxoxoxoxoxoxoxo', open: '..x.......x.....',
+      bass: 'R.R.O.R.R.R.O.F.', bassWave: 'sawtooth',
+      arp: '0.1.2.1.0.1.2.2.', leadWave: 'square', arpOct: 2, leadVol: 0.035, pad: true
+    },
+    marimba: {
+      grid: 16,
+      kick: 'X.......X.......', clap: '......x.......x.', hat: '.xx.xx.x.xx.xx.x', open: '',
+      bass: 'R..R..R.O..O..O.', bassWave: 'triangle',
+      arp: '0.10.12.0.10.12.', leadWave: 'sine', arpOct: 2, leadVol: 0.08, pad: false
+    },
+    forestboss: {
+      grid: 16,
+      kick: 'X..x..x.X..x....', clap: '...o..x....o..x.', hat: 'xxoxxoxoxxoxxoxo', open: '',
+      bass: 'R..R..O.R..R..F.', bassWave: 'sawtooth',
+      arp: '2..1..0.2..1..0.', leadWave: 'sine', arpOct: 2, leadVol: 0.07, pad: true
+    },
+    nebula: {
+      grid: 16,
+      kick: 'X.....x...x.....', clap: '........x.......', hat: '..o.o...o.o...o.', open: '......x.......x.',
+      bass: 'R.....R.F.......', bassWave: 'triangle',
+      arp: '0.2...1.2...0...', leadWave: 'sine', arpOct: 2, leadVol: 0.07, pad: true
+    },
+    spaceboss: {
+      grid: 16,
+      kick: 'X.........x.x...', clap: '........x.......', hat: 'o.o.o.o.o.o.o.o.', open: '....x.......x...',
+      bass: 'R..R....F..F....', bassWave: 'sawtooth',
+      arp: '0.1.2.1.0.1.2.1.', leadWave: 'sine', arpOct: 2, leadVol: 0.06, pad: true
+    },
+    synth: {
+      grid: 12,
+      kick: 'X.....x.....', clap: '......x.....', hat: 'xoxxoxxoxxox', open: '',
+      bass: 'R.....O..R..', bassWave: 'sawtooth',
+      arp: '0.1.2.0.1.2.', leadWave: 'square', arpOct: 2, leadVol: 0.035, pad: true
+    },
+    neoboss: {
+      grid: 12,
+      kick: 'X..x..x..x..', clap: '...x.....x..', hat: 'xoxxoxxoxxox', open: '..x..x..x..x',
+      bass: 'R.RR.RO.RR.O', bassWave: 'sawtooth',
+      arp: '2.1.0.2.1.0.', leadWave: 'sawtooth', arpOct: 2, leadVol: 0.03, pad: false
+    },
+    funk: {
+      grid: 16,
+      kick: 'X..x..x...x..x..', clap: '....x..o....x...', hat: 'xxoxxxoxxxoxxxox', open: '..........x.....',
+      bass: 'R..RO.R..R.ROR.F', bassWave: 'square',
+      arp: '0...1.2.0...2.1.', leadWave: 'square', arpOct: 2, leadVol: 0.035, pad: false
+    },
+    finalboss: {
+      grid: 16,
+      kick: 'X.x.x.x.X.x.x.xx', clap: '....x.......x...', hat: 'xoxoxoxoxoxoxoxo', open: '..x...x...x...x.',
+      bass: 'RRORRROFRRORRFOR', bassWave: 'sawtooth',
+      arp: '0120120120120122', leadWave: 'sawtooth', arpOct: 2, leadVol: 0.03, pad: true
+    }
+  });
+
+  /* MUNDOS. Cada mundo tiene un vocabulario de compases (P) y cinco niveles.
+     En "bars" cada letra es un compás del vocabulario. Una letra MAYÚSCULA
+     es un desafío del jefe: la nube toca el ritmo (compás de escucha) y en
+     el compás siguiente el jugador lo repite con la pantalla a oscuras. */
+  const WORLDS = [
     {
-      id: '1', num: 1, secret: false,
-      name: 'Arcade Nocturno', difficulty: 'Tutorial',
-      char: 'bolt', charName: 'Bolt, el robot',
-      scene: 'arcade', color: '#FF4D8D', accent: '255, 77, 141',
-      hitWave: 'square', approach: 1.7, win: [0.09, 0.17],
-      intro: ['TOCA AL RITMO', 'Toca cuando la bolita llegue al aro'],
-      sections: [{
-        bpm: 100, mus: MUS.arcade, chords: CH.am,
-        bars: [
-          [0, 2], [0, 2], [0, 1, 2, 3], [0, 1, 2],
-          [0, 2, 3], [0, 1, 2, 3], [0, 1, 2, 2.5], [0, 2],
-          [0, 1, 2, 3], [0, 0.5, 1, 2], [0, 1, 2, 2.5, 3], [0, 2],
-          [0, 1, 2, 3], [0, 1, 2, 2.5, 3], [0]
-        ]
-      }],
-      tags: [
-        { bar: 3, text: '¡Ahora cada pulso!' },
-        { bar: 7, text: '¡Ojo: golpes dobles!' },
-        { bar: 13, text: '¡Último empujón!' }
+      name: 'Arcade Nocturno', short: 'Arcade', scene: 'arcade',
+      char: 'bolt', charName: 'Bolt, el robot', color: '#FF4D8D', accent: '255, 77, 141', hitWave: 'square',
+      orb: 'Ritmo del Arcade',
+      lore: 'Las máquinas del arcade se apagaron cuando llegó el Gran Silencio. Bolt, el robot guardián, necesita a alguien que vuelva a encender el pulso de la ciudad.',
+      bossName: 'Apagón',
+      bossIntro: '«¿Pulso? Aquí sólo queda silencio...»',
+      win: 'Las máquinas vuelven a sonar. ¡Recuperaste el Ritmo del Arcade!',
+      P: {
+        a: [0, 2], b: [0, 1, 2, 3], c: [0, 1, 2], d: [0, 2, 3], e: [0, 1, 2, 2.5], f: [0, 0.5, 1, 2],
+        g: [0, 1, 2, 2.5, 3], h: [0, 0.5, 2, 2.5], i: [0, 1, 1.5, 2, 3], j: [0, 0.5, 1, 1.5, 2],
+        k: [0, 1, 3], m: [0, 2, 2.5, 3]
+      },
+      levels: [
+        { name: 'Encendido', hint: 'Toca cuando la bolita llegue al aro', bpm: 92, mus: 'arcade', chords: CH.am, bars: 'aabc abdc bbea bd' },
+        { name: 'Monedas', hint: 'Llegan los golpes dobles', bpm: 98, mus: 'chip', chords: CH.amAlt, bars: 'bcbd ebec dbge bg' },
+        { name: 'High Score', hint: 'Más golpes seguidos', bpm: 104, mus: 'arcade', chords: CH.f, bars: 'bebh fbmc gehd bf' },
+        { name: 'Turbo', hint: 'Ráfagas de corcheas', bpm: 110, mus: 'chip', chords: tr(CH.c, 2), bars: 'ghfi jbmh igjk fb' },
+        { name: 'Apagón', hint: '', bpm: 114, mus: 'arcboss', chords: CH.cm, bars: 'bbeh BE gfih CH jgig' }
       ]
     },
     {
-      id: '2', num: 2, secret: false,
-      name: 'Bosque Colorido', difficulty: 'Fácil',
-      char: 'miso', charName: 'Miso, la gata',
-      scene: 'forest', color: '#3DF5C2', accent: '61, 245, 194',
-      hitWave: 'sine', approach: 1.6, win: [0.085, 0.165],
-      intro: ['BOSQUE COLORIDO', 'Ritmo saltarín: 1... 2... 3'],
-      sections: [{
-        bpm: 108, mus: MUS.forest, chords: CH.c,
-        bars: [
-          [0, 1.5, 3], [0, 1.5, 3], [0, 1, 2, 3], [0, 1.5, 3],
-          [0, 1.5, 2, 3], [0, 1.5, 2.5, 3], [0, 0.5, 1.5, 3], [0, 2],
-          [0, 1.5, 3, 3.5], [1, 1.5, 3], [0, 1.5, 2, 2.5, 3], [0, 1.5, 3],
-          [0, 0.5, 1.5, 2, 3], [0, 1.5, 2.5, 3, 3.5], [0, 1.5, 3], [0]
-        ]
-      }],
-      tags: [
-        { bar: 5, text: '¡Más golpes!' },
-        { bar: 9, text: '¡Contratiempos!' },
-        { bar: 13, text: '¡Final del bosque!' }
+      name: 'Bosque Colorido', short: 'Bosque', scene: 'forest',
+      char: 'miso', charName: 'Miso, la gata', color: '#3DF5C2', accent: '61, 245, 194', hitWave: 'sine',
+      orb: 'Ritmo del Bosque',
+      lore: 'Los árboles bailaban con un compás saltarín de 3-3-2, hasta que la nube los dejó dormidos. Miso, la gata, conoce cada rama del camino.',
+      bossName: 'Siesta Eterna',
+      bossIntro: '«Shhh... el bosque prefiere dormir.»',
+      win: 'El bosque despierta bailando. ¡Recuperaste el Ritmo del Bosque!',
+      P: {
+        a: [0, 1.5, 3], b: [0, 1, 2, 3], c: [0, 1.5, 2, 3], d: [0, 1.5, 2.5, 3], e: [0, 0.5, 1.5, 3], f: [0, 2],
+        g: [0, 1.5, 3, 3.5], h: [1, 1.5, 3], i: [0, 1.5, 2, 2.5, 3], j: [0, 0.5, 1.5, 2, 3], k: [0, 1.5, 2.5, 3, 3.5],
+        l: [0, 0.75, 1.5, 3], m: [0, 1.5, 2, 3, 3.5], n: [0.5, 1.5, 3]
+      },
+      levels: [
+        { name: 'Brotes', hint: 'Ritmo saltarín: 1... 2... 3', bpm: 100, mus: 'forest', chords: CH.c, bars: 'aaba cada aefa ca' },
+        { name: 'Saltarín', hint: 'Golpes a destiempo', bpm: 106, mus: 'marimba', chords: CH.f, bars: 'acad egca dcfa ge' },
+        { name: 'Luciérnagas', hint: 'Dobles entre las ramas', bpm: 110, mus: 'forest', chords: tr(CH.c, -3), bars: 'cdeg hfia jkfc ia' },
+        { name: 'Ramas Rápidas', hint: 'Síncopas veloces (bolitas amarillas)', bpm: 116, mus: 'marimba', chords: CH.amAlt, bars: 'ijkh mlnf ijgl mk' },
+        { name: 'Siesta Eterna', hint: '', bpm: 118, mus: 'forestboss', chords: tr(CH.cm, 2), bars: 'aceg AD ijhf EG kmli' }
       ]
     },
     {
-      id: '3', num: 3, secret: false,
-      name: 'Órbita Lunar', difficulty: 'Intermedio',
-      char: 'nova', charName: 'Nova, la astronauta',
-      scene: 'space', color: '#7CC8FF', accent: '124, 200, 255',
-      hitWave: 'sine', approach: 1.5, win: [0.08, 0.16],
-      intro: ['ÓRBITA LUNAR', 'Atento a los contratiempos y silencios'],
-      sections: [{
-        bpm: 116, mus: MUS.space, chords: CH.dm,
-        bars: [
-          [0, 1, 2, 3], [0, 1.5, 2, 3], [0.5, 1.5, 2, 3], [0, 2],
-          [0.5, 1.5, 2.5, 3], [0, 1, 3], [0, 0.5, 1.5, 2.5], [0, 3],
-          [0, 0.5, 1, 2.5, 3], [1, 1.5, 2.5, 3.5], [0, 0.5, 1.5, 2, 3, 3.5], [0, 2.5],
-          [0.5, 1, 1.5, 2.5, 3], [0, 0.5, 1, 1.5, 2.5, 3], [0, 1.5, 2, 3], [0]
-        ]
-      }],
-      tags: [
-        { bar: 3, text: '¡Empieza a destiempo!' },
-        { bar: 8, text: '¡Silencio espacial!' },
-        { bar: 13, text: '¡Lluvia de meteoros!' }
+      name: 'Órbita Lunar', short: 'Órbita', scene: 'space',
+      char: 'nova', charName: 'Nova, la astronauta', color: '#7CC8FF', accent: '124, 200, 255', hitWave: 'sine',
+      orb: 'Ritmo Lunar',
+      lore: 'En el espacio nadie oye nada... pero Nova capta una señal que late entre contratiempos y silencios largos.',
+      bossName: 'El Vacío',
+      bossIntro: '«En el vacío, nadie te escuchará tocar.»',
+      win: 'La señal vuelve a la Tierra. ¡Recuperaste el Ritmo Lunar!',
+      P: {
+        a: [0, 1, 2, 3], b: [0, 1.5, 2, 3], c: [0.5, 1.5, 2, 3], d: [0, 2], e: [0.5, 1.5, 2.5, 3], f: [0, 1, 3],
+        g: [0, 0.5, 1.5, 2.5], h: [0, 3], i: [0, 0.5, 1, 2.5, 3], j: [1, 1.5, 2.5, 3.5], k: [0, 0.5, 1.5, 2, 3, 3.5],
+        l: [0, 2.5], m: [0.5, 1, 1.5, 2.5, 3], n: [0, 0.5, 1, 1.5, 2.5, 3], o: [0.5, 2.5], p: [1.5, 2, 3.5]
+      },
+      levels: [
+        { name: 'Despegue', hint: 'Silencios espaciales', bpm: 106, mus: 'space', chords: CH.dm, bars: 'abad bfab cdaf bh' },
+        { name: 'Gravedad Cero', hint: 'Golpes que empiezan a destiempo', bpm: 112, mus: 'nebula', chords: CH.d, bars: 'bcfd ehbg cfad gl' },
+        { name: 'Contratiempos', hint: 'Cuenta los silencios', bpm: 116, mus: 'space', chords: CH.amAlt, bars: 'egih cjfl ekgh io' },
+        { name: 'Lluvia de Meteoros', hint: 'Meteoros en cadena', bpm: 122, mus: 'nebula', chords: tr(CH.dm, 2), bars: 'ijkl mnoh jkmp ni' },
+        { name: 'El Vacío', hint: '', bpm: 124, mus: 'spaceboss', chords: tr(CH.cm, -1), bars: 'aceg CE kjnh GJ mink' }
       ]
     },
     {
-      id: '4', num: 4, secret: false,
-      name: 'Neo Ciudad', difficulty: 'Difícil',
-      char: 'kage', charName: 'Kage, el ninja',
-      scene: 'future', color: '#FF7EDB', accent: '255, 126, 219',
-      hitWave: 'triangle', approach: 1.35, win: [0.075, 0.15],
-      intro: ['NEO CIUDAD', 'Tresillos ninja: bolitas azules'],
-      sections: [{
-        bpm: 124, mus: MUS.neo, chords: CH.em,
-        bars: [
-          [0, 1, 2, 3], [0, 2 * T, 4 * T, 2, 3], [0, 1, 5 * T, 2, 3], [0, 2 * T, 2, 8 * T],
-          [0, T, 2 * T, 2, 3], [0, 1, 2, 7 * T, 8 * T], [0, 2 * T, 4 * T, 2, 3], [0, 2],
-          [0, T, 2 * T, 1, 2, 8 * T, 10 * T], [0, 5 * T, 7 * T, 3], [0, T, 2 * T, 5 * T, 2, 3], [0, 2 * T, 4 * T, 2, 8 * T, 10 * T],
-          [0, 1, 4 * T, 5 * T, 2, 3, 10 * T, 11 * T], [0, 2 * T, 4 * T, 2, 7 * T, 8 * T, 10 * T], [0, 1, 2, 3], [0]
-        ]
-      }],
-      tags: [
-        { bar: 2, text: '¡Ritmo ninja!' },
-        { bar: 5, text: '¡Ráfaga de tresillos!' },
-        { bar: 9, text: '¡Más rápido!' },
-        { bar: 13, text: '¡Golpe final ninja!' }
+      name: 'Neo Ciudad', short: 'Neo', scene: 'future',
+      char: 'kage', charName: 'Kage, el ninja', color: '#FF7EDB', accent: '255, 126, 219', hitWave: 'triangle',
+      orb: 'Ritmo de Neón',
+      lore: 'La ciudad de neón cambió su pulso por tresillos secretos. Kage, el ninja, los esconde entre las sombras... y la nube también.',
+      bossName: 'Sombra Neón',
+      bossIntro: '«Tus tresillos se pierden en mis sombras.»',
+      win: 'Los letreros vuelven a parpadear a tiempo. ¡Recuperaste el Ritmo de Neón!',
+      P: {
+        a: [0, 1, 2, 3], b: [0, 2 * T, 4 * T, 2, 3], c: [0, 1, 5 * T, 2, 3], d: [0, 2 * T, 2, 8 * T], e: [0, T, 2 * T, 2, 3],
+        f: [0, 1, 2, 7 * T, 8 * T], g: [0, 2], h: [0, T, 2 * T, 1, 2, 8 * T, 10 * T], i: [0, 5 * T, 7 * T, 3],
+        j: [0, T, 2 * T, 5 * T, 2, 3], k: [0, 2 * T, 4 * T, 2, 8 * T, 10 * T], l: [0, 1, 4 * T, 5 * T, 2, 3, 10 * T, 11 * T],
+        m: [0, 2 * T, 4 * T, 2, 7 * T, 8 * T, 10 * T], n: [0, 4 * T, 8 * T], o: [0, 4 * T, 8 * T, 3], p: [2, 7 * T, 8 * T, 3]
+      },
+      levels: [
+        { name: 'Sigilo', hint: 'Bolitas azules: tresillos', bpm: 110, mus: 'neo', chords: CH.em, bars: 'abac dbag ecba dg' },
+        { name: 'Tresillos', hint: 'Tres golpes en un pulso', bpm: 116, mus: 'synth', chords: CH.amAlt, bars: 'bdec fnbg eicd fn' },
+        { name: 'Neón', hint: 'Ráfagas ninja', bpm: 120, mus: 'neo', chords: CH.f, bars: 'ehjk ngid fjko gh' },
+        { name: 'Sombras Veloces', hint: 'Tresillos muy rápidos', bpm: 126, mus: 'synth', chords: tr(CH.em, 3), bars: 'hlmk pjlo mhkl pm' },
+        { name: 'Sombra Neón', hint: '', bpm: 126, mus: 'neoboss', chords: tr(CH.cm, 4), bars: 'abek BN hjlm EO lmhk' }
       ]
     },
     {
-      id: '5', num: 5, secret: false,
-      name: 'Gran Final', difficulty: 'Muy difícil',
-      char: 'draco', charName: 'Draco, el dragón DJ',
-      scene: 'stage', color: '#FFD23F', accent: '255, 210, 63',
-      hitWave: 'sawtooth', approach: 1.15, win: [0.07, 0.14],
-      intro: ['GRAN FINAL', 'Todo junto: síncopas y golpes rapidísimos'],
-      sections: [{
-        bpm: 132, mus: MUS.final, chords: CH.gm,
-        bars: [
-          [0, 1, 2, 3], [0, 0.5, 1, 2, 2.5, 3], [0, 0.75, 1.5, 2, 3], [0, 1, 1.25, 2, 3],
-          [0, 0.5, 1.5, 2, 2.5, 3.5], [0, 0.75, 1.5, 2.25, 3], [0, 1, 1.25, 1.5, 2, 3, 3.5], [0, 3],
-          [0, 0.5, 1, 1.5, 2, 2.25, 2.5, 3], [0.5, 1, 2, 2.75, 3.5], [0, 0.25, 1, 1.5, 2, 2.25, 3], [0, 1.5, 3],
-          [0, 0.5, 0.75, 1.5, 2, 2.5, 2.75, 3.5], [0, 0.25, 0.5, 1, 2, 2.25, 2.5, 3], [0, 0.75, 1.5, 2, 2.5, 3, 3.25, 3.5], [0, 1, 2, 2.5, 3, 3.25, 3.5],
-          [0]
-        ]
-      }],
-      tags: [
-        { bar: 3, text: '¡Síncopas!' },
-        { bar: 8, text: '¡Pausa sorpresa!' },
-        { bar: 13, text: '¡Todo o nada!' }
+      name: 'Gran Final', short: 'Final', scene: 'stage',
+      char: 'draco', charName: 'Draco, el dragón DJ', color: '#FFD23F', accent: '255, 210, 63', hitWave: 'sawtooth',
+      orb: 'Ritmo del Escenario',
+      lore: 'El último escenario. Aquí el Gran Silencio guardó su mayor fuerza, y Draco espera con los audífonos puestos para el concierto final.',
+      bossName: 'Gran Silencio',
+      bossIntro: '«Soy el final de toda canción.»',
+      win: 'El público grita y las luces arden. ¡Beat City vuelve a sonar!',
+      P: {
+        a: [0, 1, 2, 3], b: [0, 0.5, 1, 2, 2.5, 3], c: [0, 0.75, 1.5, 2, 3], d: [0, 1, 1.25, 2, 3],
+        e: [0, 0.5, 1.5, 2, 2.5, 3.5], f: [0, 0.75, 1.5, 2.25, 3], g: [0, 1, 1.25, 1.5, 2, 3, 3.5], h: [0, 3],
+        i: [0, 0.5, 1, 1.5, 2, 2.25, 2.5, 3], j: [0.5, 1, 2, 2.75, 3.5], k: [0, 0.25, 1, 1.5, 2, 2.25, 3], l: [0, 1.5, 3],
+        m: [0, 0.5, 0.75, 1.5, 2, 2.5, 2.75, 3.5], n: [0, 0.25, 0.5, 1, 2, 2.25, 2.5, 3],
+        o: [0, 0.75, 1.5, 2, 2.5, 3, 3.25, 3.5], p: [0, 1, 2, 2.5, 3, 3.25, 3.5]
+      },
+      levels: [
+        { name: 'Prueba de Sonido', hint: 'Bolitas amarillas: golpes rapidísimos', bpm: 118, mus: 'final', chords: CH.gm, bars: 'abac dbea bcdl ab' },
+        { name: 'Ensayo', hint: 'Ritmo funk', bpm: 124, mus: 'funk', chords: CH.f, bars: 'cdfe gbhc fjdl eg' },
+        { name: 'Encore', hint: 'Sin respiro', bpm: 128, mus: 'final', chords: CH.amAlt, bars: 'eigj kfhb mjil gk' },
+        { name: 'Clímax', hint: 'Todo junto', bpm: 134, mus: 'funk', chords: tr(CH.gm, 2), bars: 'imno kjml nopi mh' },
+        { name: 'Gran Silencio', hint: '', bpm: 138, mus: 'finalboss', chords: tr(CH.cm, -2), bars: 'bcfg DF ijkl KM mnop' }
       ]
-    },
-    {
-      id: 'S', num: 6, secret: true,
-      name: 'Prisma Secreto', difficulty: 'Secreto',
-      char: 'lumi', charName: 'Lumi, el espíritu prisma',
-      scene: 'prism', color: '#FF7EDB', accent: '255, 126, 219',
-      hitWave: 'triangle', approach: 1.1, win: [0.07, 0.14],
-      intro: ['NIVEL SECRETO', 'El tempo va a cambiar. ¡Suerte!'],
-      finalChord: A_MAJOR,
-      sections: [
-        {
-          bpm: 120, mus: MUS.prismA, chords: CH.am,
-          bars: [
-            [0, 0.5, 1, 2, 2.5, 3], [0, 0.75, 1.5, 2, 3, 3.5], [0, 1, 1.25, 1.5, 2, 3], [0, 0.5, 1.5, 2, 2.75, 3.5]
-          ]
-        },
-        {
-          bpm: 150, mus: MUS.prismB, chords: CH.bm, tag: '¡Acelera! 150 BPM',
-          bars: [
-            [0, 1, 2, 3], [0, 0.5, 1, 2, 3], [0, 1, 1.5, 2, 2.5, 3], [0, 0.5, 1, 1.5, 2, 3], [0, 2]
-          ]
-        },
-        {
-          bpm: 96, mus: MUS.prismC, chords: CH.em, tag: '¡Frena! Tresillos lentos',
-          bars: [
-            [0, 2 * T, 4 * T, 2, 3], [0, T, 2 * T, 1, 2, 3], [0, 1, 4 * T, 5 * T, 2, 8 * T, 10 * T], [0, 2]
-          ]
-        },
-        {
-          bpm: 140, mus: MUS.prismD, chords: CH.gm, tag: '¡Sprint final!',
-          bars: [
-            [0, 0.5, 0.75, 1.5, 2, 2.5, 3, 3.5], [0, 0.25, 0.5, 1, 2, 2.75, 3.5], [0, 0.75, 1.5, 2.25, 3, 3.25, 3.5], [0, 0.5, 1, 1.25, 1.5, 2, 2.5, 3, 3.5], [0]
-          ]
-        }
-      ],
-      tags: []
     }
   ];
+
+  // Convierte la cadena de letras en compases
+  function parseBars(str, P) {
+    const out = [];
+    for (const ch of str.replace(/\s+/g, '')) {
+      const low = ch.toLowerCase();
+      const pat = P[low];
+      if (!pat) throw new Error('Patrón desconocido: ' + ch);
+      if (ch !== low) {
+        out.push({ notes: [], cues: pat, call: true });
+        out.push({ notes: pat, dark: true });
+      } else {
+        out.push({ notes: pat });
+      }
+    }
+    out.push({ notes: [0] });
+    return out;
+  }
+
+  const DIFFICULTY = ['Fácil', 'Normal', 'Intermedio', 'Difícil', 'Jefe'];
+  const LEVELS = [];
+  WORLDS.forEach((w, wi) => {
+    w.num = wi + 1;
+    w.levels.forEach((lv, li) => {
+      const d = wi * 5 + li;            // 0..24: dificultad global
+      const boss = li === 4;
+      const code = `${wi + 1}-${li + 1}`;
+      let intro;
+      if (d === 0) intro = ['TOCA AL RITMO', lv.hint];
+      else if (boss) intro = [`JEFE: ${w.bossName.toUpperCase()}`, w.bossIntro];
+      else intro = [`NIVEL ${code}`, lv.hint];
+      LEVELS.push({
+        id: code, code, num: d + 1, secret: false, world: wi + 1, idx: li + 1, boss,
+        name: boss ? `Jefe: ${w.bossName}` : lv.name,
+        difficulty: DIFFICULTY[li],
+        char: w.char, charName: w.charName, scene: w.scene,
+        color: w.color, accent: w.accent, hitWave: w.hitWave,
+        approach: +(1.75 - d * 0.024).toFixed(3),
+        win: [+(0.09 - d * 0.0008).toFixed(4), +(0.17 - d * 0.0012).toFixed(4)],
+        intro,
+        hud: boss ? `${code} JEFE` : `${code} ${w.short}`,
+        sections: [{ bpm: lv.bpm, mus: MUS[lv.mus], chords: lv.chords, bars: parseBars(lv.bars, w.P) }],
+        tags: []
+      });
+    });
+  });
+
+  LEVELS.push({
+    id: 'S', code: 'S', num: LEVELS.length + 1, secret: true, world: 6, idx: 1, boss: false,
+    name: 'Prisma Secreto', difficulty: 'Secreto',
+    char: 'lumi', charName: 'Lumi, el espíritu prisma',
+    scene: 'prism', color: '#FF7EDB', accent: '255, 126, 219',
+    hitWave: 'triangle', approach: 1.1, win: [0.07, 0.14],
+    intro: ['NIVEL SECRETO', 'El sexto ritmo cambia de tempo. ¡Suerte!'],
+    hud: '✨ Secreto',
+    finalChord: A_MAJOR,
+    sections: [
+      {
+        bpm: 120, mus: MUS.prismA, chords: CH.am,
+        bars: [
+          [0, 0.5, 1, 2, 2.5, 3], [0, 0.75, 1.5, 2, 3, 3.5], [0, 1, 1.25, 1.5, 2, 3], [0, 0.5, 1.5, 2, 2.75, 3.5]
+        ]
+      },
+      {
+        bpm: 150, mus: MUS.prismB, chords: CH.bm, tag: '¡Acelera! 150 BPM',
+        bars: [
+          [0, 1, 2, 3], [0, 0.5, 1, 2, 3], [0, 1, 1.5, 2, 2.5, 3], [0, 0.5, 1, 1.5, 2, 3], [0, 2]
+        ]
+      },
+      {
+        bpm: 96, mus: MUS.prismC, chords: CH.em, tag: '¡Frena! Tresillos lentos',
+        bars: [
+          [0, 2 * T, 4 * T, 2, 3], [0, T, 2 * T, 1, 2, 3], [0, 1, 4 * T, 5 * T, 2, 8 * T, 10 * T], [0, 2]
+        ]
+      },
+      {
+        bpm: 140, mus: MUS.prismD, chords: CH.gm, tag: '¡Sprint final!',
+        bars: [
+          [0, 0.5, 0.75, 1.5, 2, 2.5, 3, 3.5], [0, 0.25, 0.5, 1, 2, 2.75, 3.5], [0, 0.75, 1.5, 2.25, 3, 3.25, 3.5], [0, 0.5, 1, 1.25, 1.5, 2, 2.5, 3, 3.5], [0]
+        ]
+      }
+    ],
+    tags: []
+  });
+
   const MAIN_LEVELS = LEVELS.filter((l) => !l.secret);
   const SECRET_LEVEL = LEVELS.find((l) => l.secret);
   const levelById = (id) => LEVELS.find((l) => l.id === id);
+  const worldLevels = (w) => MAIN_LEVELS.filter((l) => l.world === w);
 
   const PHRASES = {
     S: ['¡Perfecto absoluto!', '¡Eres una máquina de ritmo!', '¡Impecable!'],
@@ -377,8 +524,9 @@
     else if (motionQuery.addListener) motionQuery.addListener(onMotion);
   }
 
+  const FIVE_STARS = 95; // nota para 5 estrellas
   function scoreToStars(score) {
-    if (score >= 100) return 5;
+    if (score >= FIVE_STARS) return 5;
     if (score >= 90) return 4;
     if (score >= 75) return 3;
     if (score >= 60) return 2;
@@ -422,6 +570,8 @@
     const lines = [];
     const bars = [];
     const tags = [];
+    const cues = [];
+    const darkRanges = [];
     for (let b = 0; b < 4; b++) lines.push({ t: b * cdBeat, bar: b === 0 });
 
     let t = 4 * cdBeat;
@@ -431,7 +581,8 @@
     secs.forEach((sec, si) => {
       const beat = 60 / sec.bpm;
       if (si > 0 && sec.tag) tags.push({ t: t - 2 * (60 / secs[si - 1].bpm), text: sec.tag });
-      sec.bars.forEach((pattern, bi) => {
+      sec.bars.forEach((raw, bi) => {
+        const bar = Array.isArray(raw) ? { notes: raw } : raw;
         absBar++;
         const isFinal = absBar === totalBars;
         const chord = isFinal && level.finalChord ? level.finalChord : sec.chords[bi % 4];
@@ -442,12 +593,22 @@
           const f = (absBar - 1) / totalBars;
           intensity = f < 0.25 ? 1 : f < 0.55 ? 2 : 3;
         }
-        bars.push({ t, beat, mus: sec.mus, chord, intensity, final: isFinal, fill: false, bpm: sec.bpm });
+        // Durante los desafíos del jefe la música baja para que se oiga el ritmo
+        if (bar.call || bar.dark) intensity = 1;
+        bars.push({ t, beat, mus: sec.mus, chord, intensity, final: isFinal, fill: false, bpm: sec.bpm, cues: bar.cues || null, special: !!(bar.call || bar.dark) });
         for (let k = 0; k < 4; k++) lines.push({ t: t + k * beat, bar: k === 0 });
-        pattern.forEach((pos, k) => {
+        if (bar.call) {
+          tags.push({ t: t - beat, text: '👂 ¡Escucha a la nube!' });
+          bar.cues.forEach((pos) => cues.push(t + pos * beat));
+        }
+        if (bar.dark) {
+          tags.push({ t: t - beat * 0.5, text: '🌑 ¡Repite a oído!' });
+          darkRanges.push({ from: t - 0.25, to: t + 4 * beat + 0.05 });
+        }
+        bar.notes.forEach((pos, k) => {
           let f = chord.tones[k % 3] * 2;
           while (f > 900) f /= 2;
-          notes.push({ t: t + pos * beat, sub: subdivision(pos), freq: f });
+          notes.push({ t: t + pos * beat, sub: subdivision(pos), freq: f, dark: !!bar.dark });
         });
         t += 4 * beat;
       });
@@ -459,12 +620,18 @@
       tags.push({ t: bar.t - 2 * bar.beat, text: tg.text });
       if (tg.bar >= 2) bars[tg.bar - 2].fill = true;
     });
-    // Redoble antes de cada cambio de sección
+    // Redobles: antes de cada cambio de sección y cada 4 compases
     let acc = 0;
     secs.forEach((sec, si) => {
       acc += sec.bars.length;
       if (si < secs.length - 1 && bars[acc - 1]) bars[acc - 1].fill = true;
     });
+    if (secs.length === 1) {
+      bars.forEach((b, i) => {
+        const next = bars[i + 1];
+        if (i % 4 === 3 && next && !next.final && !b.special && !next.special) b.fill = true;
+      });
+    }
 
     notes.sort((a, b) => a.t - b.t);
     tags.sort((a, b) => a.t - b.t);
@@ -475,6 +642,8 @@
       lines: lines.filter((l) => l.t <= lastNote + 0.001),
       bars,
       tags,
+      cues: cues.sort((a, b) => a - b),
+      darkRanges,
       cdBeat,
       firstT: notes[0].t,
       lastT: lastNote,
@@ -1214,6 +1383,31 @@
       this.wood(t, this.sfx, 1318.5, 0.18);
       this.wood(t + 0.06, this.sfx, 1760, 0.16);
     },
+    // Voz del Gran Silencio (el ritmo que hay que repetir)
+    cue(t, dest, freq) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const o2 = c.createOscillator();
+      const f = c.createBiquadFilter();
+      const g = c.createGain();
+      o.type = 'square';
+      o.frequency.setValueAtTime(freq * 1.5, t);
+      o.frequency.exponentialRampToValueAtTime(freq, t + 0.06);
+      o2.type = 'sawtooth';
+      o2.frequency.value = freq * 0.5;
+      f.type = 'lowpass';
+      f.Q.value = 8;
+      f.frequency.setValueAtTime(2400, t);
+      f.frequency.exponentialRampToValueAtTime(300, t + 0.22);
+      this._env(g, t, 0.34, 0.004, 0.24);
+      o.connect(f);
+      o2.connect(f);
+      f.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 0.3, dest);
+      this._play(o2, t, t + 0.3, dest);
+    },
+
     // Efecto de "cinta que se detiene" (el Gran Silencio)
     drop(t, dest) {
       const c = this.ctx;
@@ -1368,6 +1562,10 @@
         }
       }
       if (I >= 3 && mus.pad) A.pad(t, bus, chord.tones, 4 * beat);
+      if (bar.cues) {
+        const mel = [2, 2.38, 3, 2.38, 2, 3, 2.38, 2];
+        bar.cues.forEach((pos, i) => A.cue(t + pos * beat, bus, chord.root * mel[i % mel.length]));
+      }
       if (bar.fill) {
         A.clap(t + 3.5 * beat, bus, 0.5);
         A.clap(t + 3.75 * beat, bus, 0.75);
@@ -1453,7 +1651,16 @@
       if (!this.ok) return p;
       try {
         const raw = window.localStorage.getItem(STORE_KEY);
-        if (!raw) return p;
+        if (!raw) {
+          // Versión anterior (5 niveles): sólo conservamos los ajustes
+          const old = JSON.parse(window.localStorage.getItem(OLD_STORE_KEY) || 'null');
+          if (old && typeof old === 'object') {
+            p.muted = !!old.muted;
+            p.introSeen = !!old.introSeen;
+            p.offsetMs = clamp(parseInt(old.offsetMs, 10) || 0, -250, 250);
+          }
+          return p;
+        }
         const d = JSON.parse(raw);
         if (!d || typeof d !== 'object') return p;
         p.unlocked = clamp(parseInt(d.unlocked, 10) || 1, 1, MAIN_LEVELS.length);
@@ -1503,8 +1710,9 @@
     return level.num <= progress.unlocked;
   }
 
+  // El secreto se abre con las 125 estrellas (5 en cada uno de los 25 niveles)
   function allMainPerfect() {
-    return MAIN_LEVELS.every((l) => rec(l).best >= 100);
+    return MAIN_LEVELS.every((l) => scoreToStars(rec(l).best) === 5);
   }
 
   function totalStars() {
@@ -1580,140 +1788,263 @@
   function renderTitle() {
     const stars = totalStars();
     let html = `★ ${stars} / ${MAIN_LEVELS.length * 5}`;
+    const done = WORLDS.filter((w) => rec(worldLevels(w.num)[4]).best >= PASS_SCORE).length;
+    if (done) html += ` <span class="title-orbs">${done}/5 ritmos</span>`;
     if (progress.secretCleared) html += '<span class="legend-badge">Leyenda del ritmo</span>';
     $('title-progress').innerHTML = html;
     buddyTitle.classList.toggle('has-crown', progress.secretCleared);
   }
 
-  /* ---------------- Mapa ---------------- */
-  let selectedId = '1';
+  /* ---------------- Mapas ----------------
+     mapMode 0 = mapa de mundos. mapMode 1..5 = mapa de ese mundo.
+     Las claves de selección son 'W1'..'W5', 'S' o el id de un nivel ('2-3'). */
+  let mapMode = 0;
+  let selectedId = 'W1';
+  const mapBg = $('map-bg');
+  const mapLore = $('map-lore');
 
-  function defaultSelection() {
-    if (isUnlocked(SECRET_LEVEL) && !progress.secretCleared) return SECRET_LEVEL.id;
-    const firstUncleared = MAIN_LEVELS.find((l) => isUnlocked(l) && rec(l).best < PASS_SCORE);
-    if (firstUncleared) return firstUncleared.id;
-    const unlocked = MAIN_LEVELS.filter((l) => isUnlocked(l));
-    return unlocked[unlocked.length - 1].id;
-  }
+  const worldBoss = (w) => worldLevels(w)[4];
+  const worldUnlocked = (w) => isUnlocked(worldLevels(w)[0]);
+  const worldDone = (w) => rec(worldBoss(w)).best >= PASS_SCORE;
+  const worldStars = (w) => worldLevels(w).reduce((a, l) => a + scoreToStars(rec(l).best), 0);
+  const worldsDone = () => WORLDS.filter((w) => worldDone(w.num)).length;
 
   function currentLevelId() {
-    const firstUncleared = MAIN_LEVELS.find((l) => isUnlocked(l) && rec(l).best < PASS_SCORE);
-    if (firstUncleared) return firstUncleared.id;
+    const first = MAIN_LEVELS.find((l) => isUnlocked(l) && rec(l).best < PASS_SCORE);
+    if (first) return first.id;
     if (isUnlocked(SECRET_LEVEL) && !progress.secretCleared) return SECRET_LEVEL.id;
     return null;
+  }
+
+  function defaultSelection(mode) {
+    const cur = currentLevelId();
+    if (mode === 0) {
+      if (cur === 'S') return 'S';
+      if (cur) return 'W' + levelById(cur).world;
+      return isUnlocked(SECRET_LEVEL) ? 'S' : 'W' + WORLDS.length;
+    }
+    const lv = worldLevels(mode);
+    const first = lv.find((l) => isUnlocked(l) && rec(l).best < PASS_SCORE);
+    if (first) return first.id;
+    const un = lv.filter((l) => isUnlocked(l));
+    return (un[un.length - 1] || lv[0]).id;
+  }
+
+  function makeNode(o) {
+    const el = document.createElement(o.button === false ? 'div' : 'button');
+    if (o.button !== false) el.type = 'button';
+    el.className = 'map-node' + (o.extraClass ? ' ' + o.extraClass : '') + (o.unlocked ? ' is-unlocked' : ' is-locked');
+    if (o.current) el.classList.add('is-current');
+    if (o.key) {
+      el.dataset.key = o.key;
+      if (o.key === selectedId) el.classList.add('is-selected');
+    }
+    if (o.label) el.setAttribute('aria-label', o.label);
+    if (o.button === false) el.setAttribute('aria-hidden', 'true');
+    el.style.setProperty('--c', o.color);
+    el.innerHTML = `
+      <span class="map-dot">${o.dot}</span>
+      <span class="map-label">
+        <span class="map-name">${o.name}</span>
+        ${o.sub ? `<span class="map-sub">${o.sub}</span>` : ''}
+        ${o.stars ? `<span class="map-stars">${o.stars}</span>` : ''}
+      </span>`;
+    return el;
+  }
+
+  function orbsHTML() {
+    return WORLDS.map((w) => `<i class="lore-orb${worldDone(w.num) ? ' is-on' : ''}" style="--c:${w.color}" title="${w.orb}"></i>`).join('');
   }
 
   function renderMap() {
     Array.from(mapTrack.querySelectorAll('.map-node')).forEach((n) => n.remove());
     const current = currentLevelId();
     let side = 0;
-    const addNode = (el) => {
+    const add = (el) => {
       el.classList.add(side % 2 === 0 ? 'is-left' : 'is-right');
       side++;
       mapTrack.appendChild(el);
     };
 
-    MAIN_LEVELS.forEach((l) => {
-      const unlocked = isUnlocked(l);
-      const r = rec(l);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'map-node' + (unlocked ? ' is-unlocked' : ' is-locked');
-      if (current === l.id) btn.classList.add('is-current');
-      if (selectedId === l.id) btn.classList.add('is-selected');
-      btn.dataset.level = l.id;
-      btn.style.setProperty('--c', l.color);
-      const label = unlocked
-        ? `Nivel ${l.num}, ${l.name}${r.plays ? `, mejor ${r.best} de 100` : ''}`
-        : `Nivel ${l.num}, bloqueado`;
-      btn.setAttribute('aria-label', label);
-      btn.innerHTML = `
-        <span class="map-dot">${unlocked ? l.num : '🔒'}</span>
-        <span class="map-label">
-          <span class="map-name">${unlocked ? '⭐ ' : ''}Nivel ${l.num}${unlocked ? '' : ' 🔒'}</span>
-          <span class="map-sub">${unlocked ? l.name : 'Bloqueado'}</span>
-          ${unlocked && r.plays ? `<span class="map-stars">${starsHTML(scoreToStars(r.best))} ${r.best}/100</span>` : ''}
-        </span>`;
-      addNode(btn);
-    });
+    if (mapMode === 0) {
+      // ----- Mapa de mundos -----
+      screens.map.dataset.world = '0';
+      mapBg.innerHTML = '';
+      mapPath.style.setProperty('--path', COLORS.yellow);
+      $('map-title').textContent = 'MUNDOS';
+      $('map-stars').textContent = `★ ${totalStars()}`;
+      const done = worldsDone();
+      const loreText = done === 0
+        ? 'El Gran Silencio se llevó los cinco ritmos de Beat City. Recupéralos mundo por mundo.'
+        : done < WORLDS.length
+          ? `Llevas ${done} de 5 ritmos. El Gran Silencio todavía domina el resto del mapa.`
+          : 'Beat City vuelve a sonar... pero dicen que un sexto ritmo espera a quien consiga todas las estrellas.';
+      mapLore.innerHTML = `<div class="lore-orbs">${orbsHTML()}</div><p>${loreText}</p>`;
 
-    const goal = document.createElement('div');
-    goal.className = 'map-node map-node--goal';
-    goal.setAttribute('aria-hidden', 'true');
-    goal.innerHTML = `<span class="map-dot">🏁</span><span class="map-label"><span class="map-name">Meta</span><span class="map-sub">${totalStars()} / ${MAIN_LEVELS.length * 5} ★</span></span>`;
-    addNode(goal);
-
-    const s = SECRET_LEVEL;
-    const sUnlocked = isUnlocked(s);
-    const sr = rec(s);
-    const sb = document.createElement('button');
-    sb.type = 'button';
-    sb.className = 'map-node map-node--secret' + (sUnlocked ? ' is-unlocked' : ' is-locked');
-    if (current === s.id) sb.classList.add('is-current');
-    if (selectedId === s.id) sb.classList.add('is-selected');
-    sb.dataset.level = s.id;
-    sb.style.setProperty('--c', '#FF7EDB');
-    sb.setAttribute('aria-label', sUnlocked ? 'Nivel secreto desbloqueado' : 'Nivel secreto bloqueado');
-    sb.innerHTML = `
-      <span class="map-dot">${sUnlocked ? '✨' : '🔒'}</span>
-      <span class="map-label">
-        <span class="map-name">${sUnlocked ? '✨ NIVEL SECRETO ✨' : '🔒 NIVEL SECRETO'}</span>
-        <span class="map-sub">${sUnlocked ? s.name : 'Consigue 100 en todos'}</span>
-        ${sUnlocked && sr.plays ? `<span class="map-stars">${starsHTML(scoreToStars(sr.best))} ${sr.best}/100</span>` : ''}
-      </span>`;
-    addNode(sb);
-
-    $('map-stars').textContent = `★ ${totalStars()}`;
+      WORLDS.forEach((w) => {
+        const un = worldUnlocked(w.num);
+        const curWorld = current && current !== 'S' && levelById(current).world === w.num;
+        add(makeNode({
+          key: 'W' + w.num, unlocked: un, current: curWorld, color: w.color,
+          dot: un ? (worldDone(w.num) ? '✓' : w.num) : '🔒',
+          name: `${un ? '⭐ ' : ''}Mundo ${w.num}${un ? '' : ' 🔒'}`,
+          sub: un ? w.name : 'Bloqueado',
+          stars: un ? `★ ${worldStars(w.num)}/25${worldDone(w.num) ? ' ✓' : ''}` : '',
+          label: un ? `Mundo ${w.num}, ${w.name}, ${worldStars(w.num)} de 25 estrellas` : `Mundo ${w.num}, bloqueado`
+        }));
+      });
+      add(makeNode({
+        button: false, unlocked: done === WORLDS.length, color: COLORS.ink, extraClass: 'map-node--goal',
+        dot: '🏁', name: 'Beat City', sub: `${done} / 5 ritmos`
+      }));
+      const sUn = isUnlocked(SECRET_LEVEL);
+      const sr = rec(SECRET_LEVEL);
+      add(makeNode({
+        key: 'S', unlocked: sUn, current: current === 'S', color: '#FF7EDB', extraClass: 'map-node--secret',
+        dot: sUn ? '✨' : '🔒',
+        name: sUn ? '✨ NIVEL SECRETO ✨' : '🔒 NIVEL SECRETO',
+        sub: sUn ? SECRET_LEVEL.name : `Consigue las ${MAIN_LEVELS.length * 5} estrellas`,
+        stars: sUn && sr.plays ? `${starsHTML(scoreToStars(sr.best))} ${sr.best}/100` : '',
+        label: sUn ? 'Nivel secreto desbloqueado' : 'Nivel secreto bloqueado'
+      }));
+    } else {
+      // ----- Mapa de un mundo -----
+      const w = WORLDS[mapMode - 1];
+      screens.map.dataset.world = String(mapMode);
+      if (!sceneCache[w.scene]) sceneCache[w.scene] = sceneSVG(w.scene);
+      mapBg.innerHTML = sceneCache[w.scene];
+      mapPath.style.setProperty('--path', w.color);
+      $('map-title').textContent = `MUNDO ${w.num}`;
+      $('map-stars').textContent = `★ ${worldStars(w.num)}/25`;
+      mapLore.innerHTML = `
+        <div class="lore-head">
+          <div class="buddy lore-buddy">${characterSVG(w.char)}</div>
+          <div><h3>${w.name}</h3><p class="lore-who">Con ${w.charName}</p></div>
+        </div>
+        <p>${worldDone(w.num) ? w.win : w.lore}</p>`;
+      worldLevels(w.num).forEach((l) => {
+        const un = isUnlocked(l);
+        const r = rec(l);
+        add(makeNode({
+          key: l.id, unlocked: un, current: current === l.id, color: l.boss ? '#3A3354' : w.color,
+          extraClass: l.boss ? 'map-node--boss' : '',
+          dot: un ? (l.boss ? '☁️' : l.idx) : '🔒',
+          name: l.boss ? (un ? '☁️ JEFE' : 'JEFE 🔒') : `${un ? '⭐ ' : ''}Nivel ${l.code}${un ? '' : ' 🔒'}`,
+          sub: un ? l.name : 'Bloqueado',
+          stars: un && r.plays ? `${starsHTML(scoreToStars(r.best))} ${r.best}/100` : '',
+          label: un ? `Nivel ${l.code}, ${l.name}${r.plays ? `, mejor ${r.best} de 100` : ''}` : `Nivel ${l.code}, bloqueado`
+        }));
+      });
+    }
     renderPanel();
     requestAnimationFrame(drawMapPath);
   }
 
+  function panelStats(r) {
+    return `<div class="panel-stats">
+        <div><span>MEJOR</span><b>${r.plays ? r.best + '/100' : '—'}</b></div>
+        <div><span>PRECISIÓN</span><b>${r.plays ? r.acc + '%' : '—'}</b></div>
+        <div><span>COMBO</span><b>${r.plays ? r.combo : '—'}</b></div>
+      </div>`;
+  }
+
+  function bpmText(l) {
+    return l.sections.length > 1
+      ? `${Math.min(...l.sections.map((x) => x.bpm))}–${Math.max(...l.sections.map((x) => x.bpm))} BPM`
+      : `${l.sections[0].bpm} BPM`;
+  }
+
   function renderPanel() {
-    const l = levelById(selectedId) || LEVELS[0];
-    const unlocked = isUnlocked(l);
-    const r = rec(l);
-    const title = l.secret ? (unlocked ? '✨ Nivel secreto ✨' : '🔒 Nivel secreto') : `Nivel ${l.num}: ${l.name}`;
-    const dot = l.secret ? (unlocked ? '✨' : '🔒') : (unlocked ? l.num : '🔒');
-    let body;
-    if (unlocked) {
-      const bpm = l.sections.length > 1
-        ? `${Math.min(...l.sections.map((s) => s.bpm))}–${Math.max(...l.sections.map((s) => s.bpm))} BPM`
-        : `${l.sections[0].bpm} BPM`;
-      body = `
-        <p class="panel-sub">${l.secret ? l.name + '. ' : ''}${l.difficulty}. Con ${l.charName}. ${bpm}.</p>
-        <div class="panel-stats">
-          <div><span>MEJOR</span><b>${r.plays ? r.best + '/100' : '—'}</b></div>
-          <div><span>PRECISIÓN</span><b>${r.plays ? r.acc + '%' : '—'}</b></div>
-          <div><span>COMBO</span><b>${r.plays ? r.combo : '—'}</b></div>
-        </div>
-        <button id="panel-play" class="btn-primary" type="button">JUGAR</button>`;
+    let dot, color, title, body;
+    if (selectedId[0] === 'W') {
+      const w = WORLDS[+selectedId.slice(1) - 1];
+      const un = worldUnlocked(w.num);
+      color = w.color;
+      dot = un ? w.num : '🔒';
+      title = `Mundo ${w.num}: ${w.name}`;
+      if (un) {
+        const cleared = worldLevels(w.num).filter((l) => rec(l).best >= PASS_SCORE).length;
+        body = `<p class="panel-sub">Con ${w.charName}. 4 niveles y un jefe.</p>
+          <div class="panel-stats">
+            <div><span>ESTRELLAS</span><b>${worldStars(w.num)}/25</b></div>
+            <div><span>NIVELES</span><b>${cleared}/5</b></div>
+            <div><span>JEFE</span><b>${worldDone(w.num) ? '✓' : '—'}</b></div>
+          </div>
+          <button id="panel-play" class="btn-primary" type="button">ENTRAR</button>`;
+      } else {
+        body = `<p class="panel-lock">Derrota al jefe del Mundo ${w.num - 1} para desbloquearlo.</p>
+          <button class="btn-primary" type="button" disabled>BLOQUEADO</button>`;
+      }
     } else {
-      const msg = l.secret
-        ? 'Consigue 100 en todos los niveles para desbloquearlo.'
-        : `Supera el Nivel ${l.num - 1} con ${PASS_SCORE} o más para desbloquearlo.`;
-      body = `<p class="panel-lock">${msg}</p>
-        <button class="btn-primary" type="button" disabled>BLOQUEADO</button>`;
+      const l = levelById(selectedId) || LEVELS[0];
+      const un = isUnlocked(l);
+      color = l.boss ? '#3A3354' : l.color;
+      if (l.secret) {
+        dot = un ? '✨' : '🔒';
+        title = un ? '✨ Nivel secreto ✨' : '🔒 Nivel secreto';
+      } else {
+        dot = un ? (l.boss ? '☁️' : l.idx) : '🔒';
+        title = l.boss ? `${l.code}: ${l.name}` : `Nivel ${l.code}: ${l.name}`;
+      }
+      if (un) {
+        const extra = l.boss ? ' Repite a oído lo que toca la nube.' : '';
+        body = `<p class="panel-sub">${l.secret ? l.name + '. ' : ''}${l.difficulty}. Con ${l.charName}. ${bpmText(l)}.${extra}</p>
+          ${panelStats(rec(l))}
+          <button id="panel-play" class="btn-primary" type="button">${l.boss ? '¡A PELEAR!' : 'JUGAR'}</button>`;
+      } else {
+        const msg = l.secret
+          ? `Consigue las ${MAIN_LEVELS.length * 5} estrellas (95 o más en cada nivel) para desbloquearlo.`
+          : `Supera el nivel ${MAIN_LEVELS[l.num - 2].code} con ${PASS_SCORE} o más para desbloquearlo.`;
+        body = `<p class="panel-lock">${msg}</p>
+          <button class="btn-primary" type="button" disabled>BLOQUEADO</button>`;
+      }
     }
     mapPanel.innerHTML = `
       <div class="panel-head">
-        <span class="map-dot" style="--c:${l.color}">${dot}</span>
+        <span class="map-dot" style="--c:${color}">${dot}</span>
         <div><h3 class="panel-title">${title}</h3></div>
       </div>${body}`;
     const play = $('panel-play');
-    if (play) play.addEventListener('click', () => startLevel(l.id));
+    if (play) play.addEventListener('click', () => mapAct(selectedId));
+  }
+
+  // Acción principal sobre un elemento del mapa: entrar al mundo o jugar
+  function mapAct(key) {
+    if (key[0] === 'W') {
+      const w = +key.slice(1);
+      if (!worldUnlocked(w)) return;
+      mapMode = w;
+      selectedId = defaultSelection(w);
+      renderMap();
+      requestAnimationFrame(() => {
+        drawMapPath();
+        scrollMapTo(selectedId);
+      });
+      return;
+    }
+    const l = levelById(key);
+    if (l && isUnlocked(l)) startLevel(l.id);
+  }
+
+  function mapBack() {
+    if (mapMode > 0) openMap('W' + mapMode);
+    else {
+      renderTitle();
+      showScreen('title');
+    }
   }
 
   function selectLevel(id, scroll) {
     selectedId = id;
-    mapTrack.querySelectorAll('.map-node[data-level]').forEach((n) => {
-      n.classList.toggle('is-selected', n.dataset.level === id);
+    mapTrack.querySelectorAll('.map-node[data-key]').forEach((n) => {
+      n.classList.toggle('is-selected', n.dataset.key === id);
     });
     renderPanel();
     if (scroll) scrollMapTo(id);
   }
 
   function scrollMapTo(id) {
-    const node = mapTrack.querySelector(`.map-node[data-level="${id}"]`);
+    const node = mapTrack.querySelector(`.map-node[data-key="${id}"]`);
     if (!node) return;
     const top = node.offsetTop + mapTrack.offsetTop - mapScroll.clientHeight / 2 + node.offsetHeight / 2;
     mapScroll.scrollTop = Math.max(0, top);
@@ -1733,22 +2064,35 @@
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, y1] = pts[i];
       const [x2, y2] = pts[i + 1];
-      let cls;
-      if (i < MAIN_LEVELS.length - 1) cls = isUnlocked(MAIN_LEVELS[i + 1]) ? 'is-done' : 'is-locked';
-      else if (i === MAIN_LEVELS.length - 1) cls = rec(MAIN_LEVELS[MAIN_LEVELS.length - 1]).best >= PASS_SCORE ? 'is-done' : 'is-locked';
-      else cls = 'is-secret ' + (isUnlocked(SECRET_LEVEL) ? 'is-done' : 'is-locked');
+      const target = nodes[i + 1];
+      let cls = target.classList.contains('is-unlocked') ? 'is-done' : 'is-locked';
+      if (target.classList.contains('map-node--secret')) cls += ' is-secret';
+      const my = ((y1 + y2) / 2).toFixed(1);
+      const mx = ((x1 + x2) / 2).toFixed(1);
       const d = vertical
-        ? `M${x1.toFixed(1)} ${y1.toFixed(1)} C${x1.toFixed(1)} ${((y1 + y2) / 2).toFixed(1)}, ${x2.toFixed(1)} ${((y1 + y2) / 2).toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`
-        : `M${x1.toFixed(1)} ${y1.toFixed(1)} C${((x1 + x2) / 2).toFixed(1)} ${y1.toFixed(1)}, ${((x1 + x2) / 2).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+        ? `M${x1.toFixed(1)} ${y1.toFixed(1)} C${x1.toFixed(1)} ${my}, ${x2.toFixed(1)} ${my}, ${x2.toFixed(1)} ${y2.toFixed(1)}`
+        : `M${x1.toFixed(1)} ${y1.toFixed(1)} C${mx} ${y1.toFixed(1)}, ${mx} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
       html += `<path class="seg ${cls}" d="${d}"/>`;
     }
     mapPath.innerHTML = html;
   }
 
-  function openMap(selectId) {
-    if (selectId) selectedId = selectId;
-    else selectedId = defaultSelection();
+  // openMap(): mapa de mundos. openMap('W2'): mapa de mundos con el mundo 2 elegido.
+  // openMap('2-3'): mapa del mundo 2 con ese nivel elegido.
+  function openMap(id) {
+    if (!id) {
+      mapMode = 0;
+      selectedId = defaultSelection(0);
+    } else if (id === 'S' || id[0] === 'W') {
+      mapMode = 0;
+      selectedId = id;
+    } else {
+      const l = levelById(id);
+      mapMode = l ? l.world : 0;
+      selectedId = l ? id : defaultSelection(0);
+    }
     showScreen('map');
+    mapScroll.scrollTop = 0;
     renderMap();
     requestAnimationFrame(() => {
       drawMapPath();
@@ -1757,14 +2101,14 @@
   }
 
   mapTrack.addEventListener('click', (e) => {
-    const node = e.target.closest('.map-node[data-level]');
+    const node = e.target.closest('.map-node[data-key]');
     if (!node) return;
-    const id = node.dataset.level;
-    if (id === selectedId && isUnlocked(levelById(id))) {
-      startLevel(id);
+    const key = node.dataset.key;
+    if (key === selectedId) {
+      mapAct(key);
       return;
     }
-    selectLevel(id, false);
+    selectLevel(key, false);
   });
 
   /* ---------------- Opciones ---------------- */
@@ -2104,8 +2448,52 @@
     primaryAction: null,
     timers: new Set(),
     faceTimer: 0,
-    swingTimer: 0
+    swingTimer: 0,
+    dark: 0,
+    darkIdx: 0,
+    cueIdx: 0
   };
+
+  const bossEl = $('boss');
+  const bossCloud = $('boss-cloud');
+  const bossFill = $('boss-fill');
+  let cloudCache = '';
+
+  function bossPulse(cls, ms) {
+    bossEl.classList.remove(cls);
+    void bossEl.offsetWidth;
+    bossEl.classList.add(cls);
+    later(() => bossEl.classList.remove(cls), ms);
+  }
+
+  function updateBossHP() {
+    const n = state.notes.length || 1;
+    const hp = clamp(1 - (state.perfect + state.good * 0.9) / n, 0, 1);
+    bossFill.style.width = (hp * 100).toFixed(1) + '%';
+  }
+
+  function resetBoss() {
+    bossEl.classList.remove('is-sing', 'is-hurt', 'is-gone', 'is-laugh');
+    bossFill.style.width = '100%';
+    stage.classList.remove('is-dark');
+  }
+
+  // Oscuridad y voz de la nube, sincronizadas con la canción
+  function updateBoss(s, dt) {
+    const song = state.song;
+    const ranges = song.darkRanges;
+    while (state.darkIdx < ranges.length && ranges[state.darkIdx].to < s) state.darkIdx++;
+    const r = ranges[state.darkIdx];
+    const target = r && s >= r.from && s <= r.to ? 1 : 0;
+    state.dark += (target - state.dark) * Math.min(1, dt * 7);
+    if (Math.abs(state.dark - target) < 0.005) state.dark = target;
+    stage.classList.toggle('is-dark', state.dark > 0.5);
+    const cues = song.cues;
+    while (state.cueIdx < cues.length && cues[state.cueIdx] <= s) {
+      state.cueIdx++;
+      bossPulse('is-sing', 170);
+    }
+  }
 
   function later(fn, ms) {
     const id = setTimeout(() => {
@@ -2149,7 +2537,7 @@
     const bottom = 14;
     L.padTop = L.H - bottom - L.padH;
     L.targetY = L.padTop - 12 - L.ringR;
-    L.laneTop = 8;
+    L.laneTop = state.level && state.level.boss ? 96 : 8;
 
     const bw = clamp(Math.min(L.W * 0.24, L.H * 0.3), 56, 132);
     const bh = bw * (140 / 150);
@@ -2255,6 +2643,21 @@
       }
     }
 
+    // Oscuridad del Gran Silencio: la pantalla se apaga a medias
+    const dk = state.dark;
+    if (dk > 0.01) {
+      g.fillStyle = `rgba(6, 3, 14, ${(0.5 * dk).toFixed(3)})`;
+      g.fillRect(0, 0, W, H);
+      const fogBottom = L.targetY - L.ringR - 4;
+      const fg = g.createLinearGradient(0, L.laneTop, 0, fogBottom);
+      fg.addColorStop(0, `rgba(22, 16, 40, ${(0.96 * dk).toFixed(3)})`);
+      fg.addColorStop(0.85, `rgba(22, 16, 40, ${(0.9 * dk).toFixed(3)})`);
+      fg.addColorStop(1, 'rgba(22, 16, 40, 0)');
+      g.fillStyle = fg;
+      roundRect(laneX - 6, L.laneTop - 6, L.laneW + 12, fogBottom - L.laneTop + 6, L.laneW / 2);
+      g.fill();
+    }
+
     // Aro objetivo
     const ringPulse = 1 + 0.08 * pulse;
     g.fillStyle = 'rgba(255, 255, 255, 0.06)';
@@ -2286,7 +2689,9 @@
           continue;
         }
         const col = SUB_COLORS[n.sub];
-        const fadeIn = clamp((approach - ahead) / 0.18, 0, 1);
+        let fadeIn = clamp((approach - ahead) / 0.18, 0, 1);
+        // En la oscuridad sólo se adivinan: hay que tocarlas de oído
+        if (n.dark) fadeIn *= ahead > 0.12 ? 0.07 : 0.07 + 0.55 * (1 - Math.max(0, ahead) / 0.12);
         g.globalAlpha = 0.22 * fadeIn;
         g.fillStyle = col;
         circle(cx, y, r * 1.55);
@@ -2554,6 +2959,10 @@
       feedback(result, sub, note);
       updateHud('hit');
       if (state.combo % 10 === 0) AudioEngine.chime();
+      if (state.level.boss) {
+        updateBossHP();
+        bossPulse('is-hurt', 220);
+      }
     }
     advanceCursor();
   }
@@ -2652,7 +3061,12 @@
     if (!state.finShown && s >= song.finT) {
       state.finShown = true;
       const passed = score100() >= PASS_SCORE;
-      flashCallout(passed ? '¡NIVEL SUPERADO!' : '¡FIN!', 'end');
+      if (state.level.boss) {
+        bossEl.classList.add(passed ? 'is-gone' : 'is-laugh');
+        flashCallout(passed ? '¡SILENCIO DERROTADO!' : '¡EL SILENCIO RESISTE!', 'end');
+      } else {
+        flashCallout(passed ? '¡NIVEL SUPERADO!' : '¡FIN!', 'end');
+      }
       buddyGame.classList.remove('is-perfect', 'is-good', 'is-miss');
       buddyGame.classList.add(passed ? 'is-victory' : 'is-defeat');
       if (passed) AudioEngine.fanfare(false);
@@ -2671,6 +3085,7 @@
     Music.pump();
 
     updateTimeline(s);
+    updateBoss(s, dt);
     processLate(s);
     buddyBob(s);
     render(s, nowMs, dt);
@@ -2680,7 +3095,7 @@
 
   /* ---------------- Flujo de partida ---------------- */
   function resetRun() {
-    state.notes = state.song.notes.map((n) => ({ t: n.t, sub: n.sub, freq: n.freq, judged: false, result: null }));
+    state.notes = state.song.notes.map((n) => ({ t: n.t, sub: n.sub, freq: n.freq, dark: n.dark, judged: false, result: null }));
     state.cursor = 0;
     state.drawStart = 0;
     state.lineStart = 0;
@@ -2703,6 +3118,10 @@
     state.flash = null;
     state.ripples.length = 0;
     state.particles.length = 0;
+    state.dark = 0;
+    state.darkIdx = 0;
+    state.cueIdx = 0;
+    resetBoss();
     hudComboWrap.classList.remove('is-bump', 'is-milestone', 'is-break');
     updateHud('none');
   }
@@ -2722,6 +3141,7 @@
     tag.classList.remove('is-on');
     judgment.classList.remove('is-on');
     stage.classList.remove('is-shake');
+    resetBoss();
   }
 
   function prepareLevelVisuals(level) {
@@ -2730,7 +3150,14 @@
     sceneEl.dataset.scene = level.scene;
     buddyGame.innerHTML = characterSVG(level.char);
     buddyBody = buddyGame.querySelector('.b-body');
-    hudLevel.textContent = level.secret ? '✨ Secreto' : `Nivel ${level.num}`;
+    hudLevel.textContent = level.hud;
+    stage.classList.toggle('is-boss', !!level.boss);
+    bossEl.hidden = !level.boss;
+    if (level.boss) {
+      if (!cloudCache) cloudCache = cloudSVG();
+      if (!bossCloud.firstChild) bossCloud.innerHTML = cloudCache;
+      $('boss-name').textContent = WORLDS[level.world - 1].bossName.toUpperCase();
+    }
     document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1A0F33');
   }
 
@@ -2779,6 +3206,7 @@
   function recordResult(level, res) {
     const r = Object.assign({ best: 0, acc: 0, combo: 0, points: 0, plays: 0 }, progress.levels[level.id]);
     const isRecord = r.plays > 0 && res.score > r.best;
+    const prevBest = r.best;
     r.best = Math.max(r.best, res.score);
     r.acc = Math.max(r.acc, res.acc);
     r.combo = Math.max(r.combo, res.combo);
@@ -2787,6 +3215,7 @@
     progress.levels[level.id] = r;
 
     const out = { isRecord, unlockedLevel: null, secretNew: false, secretClearedNow: false, passed: res.score >= PASS_SCORE };
+    out.bossFirstWin = !!level.boss && out.passed && prevBest < PASS_SCORE;
     if (out.passed && !level.secret && level.num < MAIN_LEVELS.length && progress.unlocked < level.num + 1) {
       progress.unlocked = level.num + 1;
       out.unlockedLevel = MAIN_LEVELS[level.num];
@@ -2822,10 +3251,14 @@
     const outcome = recordResult(level, res);
     const stars = scoreToStars(res.score);
 
-    $('res-level').textContent = level.secret ? `Nivel secreto: ${level.name}` : `Nivel ${level.num}: ${level.name}`;
-    $('res-title').textContent = outcome.secretClearedNow
-      ? '¡LEYENDA DEL RITMO!'
-      : outcome.passed ? '¡NIVEL SUPERADO!' : 'RESULTADO';
+    const world = level.secret ? null : WORLDS[level.world - 1];
+    $('res-level').textContent = level.secret
+      ? `Nivel secreto: ${level.name}`
+      : `Mundo ${level.world}: ${world.name}. ${level.boss ? 'Jefe' : 'Nivel ' + level.code}`;
+    let title = outcome.passed ? '¡NIVEL SUPERADO!' : 'RESULTADO';
+    if (level.boss) title = outcome.passed ? '¡SILENCIO DERROTADO!' : 'EL SILENCIO RESISTE';
+    if (outcome.secretClearedNow) title = '¡LEYENDA DEL RITMO!';
+    $('res-title').textContent = title;
     $('res-score').textContent = '0';
     $('res-stars').innerHTML = starsHTML(stars);
     const ratingEl = $('res-rating');
@@ -2853,15 +3286,25 @@
       unlockEl.textContent = '👑 Ganaste la Corona Prisma. Mira la pantalla de inicio.';
       unlockEl.classList.add('is-secret');
       unlockEl.hidden = false;
-    } else if (outcome.unlockedLevel) {
-      unlockEl.textContent = `🔓 ¡Nivel ${outcome.unlockedLevel.num} desbloqueado!`;
+    } else if (outcome.bossFirstWin) {
+      unlockEl.textContent = level.world < WORLDS.length
+        ? `${world.win} 🔓 ¡Mundo ${level.world + 1} desbloqueado!`
+        : `${world.win} Recuperaste los cinco ritmos. Consigue las ${MAIN_LEVELS.length * 5} estrellas para descubrir el sexto ritmo.`;
+      unlockEl.classList.add('is-lore');
       unlockEl.hidden = false;
-    } else if (!outcome.passed && !level.secret && level.num < MAIN_LEVELS.length && !isUnlocked(MAIN_LEVELS[level.num])) {
-      unlockEl.textContent = `Consigue ${PASS_SCORE} o más para desbloquear el Nivel ${level.num + 1}.`;
+    } else if (outcome.unlockedLevel) {
+      unlockEl.textContent = `🔓 ¡Nivel ${outcome.unlockedLevel.code} desbloqueado!`;
+      unlockEl.hidden = false;
+    } else if (!outcome.passed && level.boss && !worldDone(level.world)) {
+      unlockEl.textContent = `Consigue ${PASS_SCORE} o más para derrotar a la nube. Escucha bien cuando la pantalla se oscurezca.`;
       unlockEl.classList.add('is-hint');
       unlockEl.hidden = false;
-    } else if (!level.secret && res.score < 100 && !isUnlocked(SECRET_LEVEL) && outcome.passed) {
-      unlockEl.textContent = 'Saca 100 en todos los niveles para descubrir el secreto.';
+    } else if (!outcome.passed && !level.secret && level.num < MAIN_LEVELS.length && !isUnlocked(MAIN_LEVELS[level.num])) {
+      unlockEl.textContent = `Consigue ${PASS_SCORE} o más para desbloquear el nivel ${MAIN_LEVELS[level.num].code}.`;
+      unlockEl.classList.add('is-hint');
+      unlockEl.hidden = false;
+    } else if (!level.secret && outcome.passed && stars < 5 && !isUnlocked(SECRET_LEVEL)) {
+      unlockEl.textContent = `Con ${FIVE_STARS} o más ganas las 5 estrellas. Juntarlas todas abre el secreto.`;
       unlockEl.classList.add('is-hint');
       unlockEl.hidden = false;
     }
@@ -2878,6 +3321,8 @@
     const nextMain = !level.secret && level.num < MAIN_LEVELS.length ? MAIN_LEVELS[level.num] : null;
     if (outcome.passed && outcome.secretNew) {
       primary = { label: 'NIVEL SECRETO', action: () => startLevel(SECRET_LEVEL.id) };
+    } else if (outcome.passed && level.boss && nextMain && isUnlocked(nextMain)) {
+      primary = { label: 'SIGUIENTE MUNDO', action: () => openMap(nextMain.id) };
     } else if (outcome.passed && nextMain && isUnlocked(nextMain)) {
       primary = { label: 'SIGUIENTE NIVEL', action: () => startLevel(nextMain.id) };
     } else if (outcome.passed) {
@@ -2895,7 +3340,7 @@
     state.resultsAt = performance.now();
     countUp($('res-score'), res.score);
 
-    if (outcome.secretNew || outcome.secretClearedNow) {
+    if (outcome.secretNew || outcome.secretClearedNow || outcome.bossFirstWin) {
       confetti(60, true);
       AudioEngine.fanfare(true);
     } else if (res.score >= 100) {
@@ -3013,7 +3458,7 @@
     }
     if (isSpace && currentScreen === 'map' && !onButton) {
       e.preventDefault();
-      if (!e.repeat && isUnlocked(levelById(selectedId))) startLevel(selectedId);
+      if (!e.repeat) mapAct(selectedId);
       return;
     }
     if (isSpace && currentScreen === 'title' && !onButton) {
@@ -3023,7 +3468,8 @@
     }
     if (e.key === 'Escape') {
       if (state.phase === 'playing' || state.phase === 'starting') leaveToMap();
-      else if (currentScreen === 'map' || currentScreen === 'options') { showScreen('title'); renderTitle(); }
+      else if (currentScreen === 'map') mapBack();
+      else if (currentScreen === 'options') { showScreen('title'); renderTitle(); }
       else if (currentScreen === 'result') openMap(state.level.id);
       return;
     }
@@ -3037,7 +3483,7 @@
   $('opt-story').addEventListener('click', () => Story.play());
   $('btn-story-skip').addEventListener('click', () => Story.finish());
   $('btn-options').addEventListener('click', () => { renderOptions(); showScreen('options'); });
-  $('map-back').addEventListener('click', () => { renderTitle(); showScreen('title'); });
+  $('map-back').addEventListener('click', () => mapBack());
   $('opt-back').addEventListener('click', () => { renderTitle(); showScreen('title'); });
   $('btn-quit').addEventListener('click', () => leaveToMap());
   $('btn-restart').addEventListener('click', () => startLevel(state.level.id));
