@@ -28,7 +28,8 @@
   const DEBOUNCE = 0.045;           // evita doble registro del mismo input
   const DOUBLE_TAP_GRACE = 0.15;    // toque extra justo después de acertar: se ignora
   const RESULTS_INPUT_DELAY = 700;  // ms antes de aceptar ESPACIO en resultados
-  const PASS_SCORE = 50;            // nota mínima (0–100) para desbloquear el siguiente nivel
+  const PASS_PRECISION = 50;        // precisión mínima (%) para superar un nivel
+  const PASS_SCORE = 50;            // toda partida superada tiene nota 50+; se usa para saber si un nivel ya se pasó
   const STORE_KEY = 'beat-rush-progress-v3';
   const OLD_STORE_KEY = 'beat-rush-progress-v2';
 
@@ -491,6 +492,7 @@
   const worldLevels = (w) => MAIN_LEVELS.filter((l) => l.world === w);
 
   const PHRASES = {
+    F: ['¡No te rindas!', '¡Casi! Inténtalo otra vez', 'Escucha el ritmo y vuelve a intentarlo'],
     S: ['¡Perfecto absoluto!', '¡Eres una máquina de ritmo!', '¡Impecable!'],
     A: ['¡Casi perfecto!', '¡Excelente!', '¡Qué buen oído!'],
     B: ['¡Buen ritmo!', '¡Vas muy bien!', '¡Nada mal!'],
@@ -524,21 +526,26 @@
     else if (motionQuery.addListener) motionQuery.addListener(onMotion);
   }
 
-  const FIVE_STARS = 95; // nota para 5 estrellas
-  function scoreToStars(score) {
-    if (score >= FIVE_STARS) return 5;
-    if (score >= 90) return 4;
-    if (score >= 75) return 3;
-    if (score >= 60) return 2;
-    if (score >= PASS_SCORE) return 1;
+  // Estrellas según la PRECISIÓN de una partida superada (igual que la letra):
+  // S = 5, A = 4, B = 3, C = 2, D = 1. Sin superar el nivel: 0.
+  const FIVE_STARS = 95; // precisión para 5 estrellas
+  function accToStars(acc) {
+    if (acc >= FIVE_STARS) return 5;
+    if (acc >= 85) return 4;
+    if (acc >= 72) return 3;
+    if (acc >= 60) return 2;
+    if (acc >= PASS_PRECISION) return 1;
     return 0;
   }
+  // Estrellas guardadas de un nivel (su mejor precisión en una partida superada)
+  const levelStars = (r) => (r.best >= PASS_SCORE ? accToStars(r.acc) : 0);
 
-  function ratingFor(score) {
-    if (score >= 100) return 'S';
-    if (score >= 90) return 'A';
-    if (score >= 75) return 'B';
-    if (score >= 60) return 'C';
+  // Letra según la PRECISIÓN (sólo si se superó el nivel)
+  function ratingFor(acc) {
+    if (acc >= 95) return 'S';
+    if (acc >= 85) return 'A';
+    if (acc >= 72) return 'B';
+    if (acc >= 60) return 'C';
     return 'D';
   }
 
@@ -1383,6 +1390,58 @@
       this.wood(t, this.sfx, 1318.5, 0.18);
       this.wood(t + 0.06, this.sfx, 1760, 0.16);
     },
+    // Baja la música de la partida (al perder)
+    fadeRun(dur) {
+      const g = this.runBus;
+      if (!g || !this.ctx) return;
+      const t = this.ctx.currentTime;
+      try {
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.linearRampToValueAtTime(0.0001, t + dur);
+      } catch (e) { /* ignorar */ }
+    },
+    // "Wah wah wah waaah": melodía triste de derrota
+    lose() {
+      if (!this.isRunning()) return;
+      const c = this.ctx;
+      const t0 = c.currentTime + 0.35;
+      [392, 369.99, 349.23, 329.63].forEach((f, i) => {
+        const t = t0 + i * 0.36;
+        const last = i === 3;
+        const dur = last ? 1.0 : 0.32;
+        const o = c.createOscillator();
+        const fl = c.createBiquadFilter();
+        const g = c.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f, t);
+        if (last) {
+          const lfo = c.createOscillator();
+          const lg = c.createGain();
+          lfo.frequency.value = 6;
+          lg.gain.value = 9;
+          lfo.connect(lg);
+          lg.connect(o.frequency);
+          lfo.start(t);
+          lfo.stop(t + dur + 0.05);
+          o.frequency.linearRampToValueAtTime(f * 0.94, t + dur);
+        }
+        fl.type = 'lowpass';
+        fl.frequency.setValueAtTime(400, t);
+        fl.frequency.linearRampToValueAtTime(1500, t + 0.08);
+        fl.frequency.linearRampToValueAtTime(500, t + dur);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.16, t + 0.03);
+        g.gain.setValueAtTime(0.16, t + dur * 0.7);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(fl);
+        fl.connect(g);
+        g.connect(this.sfx);
+        o.start(t);
+        o.stop(t + dur + 0.05);
+      });
+    },
+
     // Voz del Gran Silencio (el ritmo que hay que repetir)
     cue(t, dest, freq) {
       const c = this.ctx;
@@ -1630,6 +1689,7 @@
       secretCleared: false,
       introSeen: false,
       endingSeen: false,
+      thanksSeen: false,
       muted: false,
       offsetMs: 0
     };
@@ -1670,6 +1730,7 @@
         p.muted = !!d.muted;
         p.introSeen = !!d.introSeen;
         p.endingSeen = !!d.endingSeen;
+        p.thanksSeen = !!d.thanksSeen;
         p.offsetMs = clamp(parseInt(d.offsetMs, 10) || 0, -250, 250);
         if (d.levels && typeof d.levels === 'object') {
           LEVELS.forEach((l) => {
@@ -1714,11 +1775,11 @@
 
   // El secreto se abre con las 125 estrellas (5 en cada uno de los 25 niveles)
   function allMainPerfect() {
-    return MAIN_LEVELS.every((l) => scoreToStars(rec(l).best) === 5);
+    return MAIN_LEVELS.every((l) => levelStars(rec(l)) === 5);
   }
 
   function totalStars() {
-    return MAIN_LEVELS.reduce((a, l) => a + scoreToStars(rec(l).best), 0);
+    return MAIN_LEVELS.reduce((a, l) => a + levelStars(rec(l)), 0);
   }
 
   // Si por alguna razón el secreto ya cumple la condición, lo reflejamos
@@ -1808,7 +1869,7 @@
   const worldBoss = (w) => worldLevels(w)[4];
   const worldUnlocked = (w) => isUnlocked(worldLevels(w)[0]);
   const worldDone = (w) => rec(worldBoss(w)).best >= PASS_SCORE;
-  const worldStars = (w) => worldLevels(w).reduce((a, l) => a + scoreToStars(rec(l).best), 0);
+  const worldStars = (w) => worldLevels(w).reduce((a, l) => a + levelStars(rec(l)), 0);
   const worldsDone = () => WORLDS.filter((w) => worldDone(w.num)).length;
 
   function currentLevelId() {
@@ -1906,7 +1967,7 @@
         dot: sUn ? '✨' : '🔒',
         name: sUn ? '✨ NIVEL SECRETO ✨' : '🔒 NIVEL SECRETO',
         sub: sUn ? SECRET_LEVEL.name : `Consigue las ${MAIN_LEVELS.length * 5} estrellas`,
-        stars: sUn && sr.plays ? `${starsHTML(scoreToStars(sr.best))} ${sr.best}/100` : '',
+        stars: sUn && sr.plays ? `${starsHTML(levelStars(sr))} ${sr.acc}%` : '',
         label: sUn ? 'Nivel secreto desbloqueado' : 'Nivel secreto bloqueado'
       }));
     } else {
@@ -1915,6 +1976,7 @@
       screens.map.dataset.world = String(mapMode);
       if (!sceneCache[w.scene]) sceneCache[w.scene] = sceneSVG(w.scene);
       mapBg.innerHTML = sceneCache[w.scene];
+      setWorldColor(mapBg, worldLevels(w.num).filter((l) => rec(l).best >= PASS_SCORE).length / 5);
       mapPath.style.setProperty('--path', w.color);
       $('map-title').textContent = `MUNDO ${w.num}`;
       $('map-stars').textContent = `★ ${worldStars(w.num)}/25`;
@@ -1923,7 +1985,10 @@
           <div class="buddy lore-buddy">${characterSVG(w.char)}</div>
           <div><h3>${w.name}</h3><p class="lore-who">Con ${w.charName}</p></div>
         </div>
-        <p>${worldDone(w.num) ? w.win : w.lore}</p>`;
+        <p>${worldDone(w.num) ? w.win : w.lore}</p>
+        ${TRAVEL[w.num] && (worldDone(w.num) || devUnlock) ? `<button id="map-film" class="btn-link lore-film" type="button">▶ Ver el viaje al Mundo ${w.num + 1}</button>` : ''}`;
+      const filmBtn = $('map-film');
+      if (filmBtn) filmBtn.addEventListener('click', () => Story.play('world' + w.num, worldBoss(w.num).id));
       worldLevels(w.num).forEach((l) => {
         const un = isUnlocked(l);
         const r = rec(l);
@@ -1933,7 +1998,7 @@
           dot: un ? (l.boss ? '☁️' : l.idx) : '🔒',
           name: l.boss ? (un ? '☁️ JEFE' : 'JEFE 🔒') : `${un ? '⭐ ' : ''}Nivel ${l.code}${un ? '' : ' 🔒'}`,
           sub: un ? l.name : 'Bloqueado',
-          stars: un && r.plays ? `${starsHTML(scoreToStars(r.best))} ${r.best}/100` : '',
+          stars: un && r.plays ? `${starsHTML(levelStars(r))} ${r.acc}%` : '',
           label: un ? `Nivel ${l.code}, ${l.name}${r.plays ? `, mejor ${r.best} de 100` : ''}` : `Nivel ${l.code}, bloqueado`
         }));
       });
@@ -1996,7 +2061,7 @@
       } else {
         const msg = l.secret
           ? `Consigue las ${MAIN_LEVELS.length * 5} estrellas (95 o más en cada nivel) para desbloquearlo.`
-          : `Supera el nivel ${MAIN_LEVELS[l.num - 2].code} con ${PASS_SCORE} o más para desbloquearlo.`;
+          : `Supera el nivel ${MAIN_LEVELS[l.num - 2].code} (con ${PASS_PRECISION}% de precisión o más) para desbloquearlo.`;
         body = `<p class="panel-lock">${msg}</p>
           <button class="btn-primary" type="button" disabled>BLOQUEADO</button>`;
       }
@@ -2124,12 +2189,30 @@
     return devUnlock || progress.endingSeen || rec(MAIN_LEVELS[MAIN_LEVELS.length - 1]).best >= PASS_SCORE;
   }
 
+  const VEHICLE_ICON = { car: '🚗', rocket: '🚀', boat: '⛵', plane: '✈️' };
+
+  function filmList() {
+    const list = [{ kind: 'intro', name: 'Historia', note: 'La introducción del juego.', ok: true }];
+    [1, 2, 3, 4].forEach((w) => {
+      list.push({
+        kind: 'world' + w,
+        name: `${VEHICLE_ICON[TRAVEL[w].vehicle]} Viaje al Mundo ${w + 1}`,
+        note: `${WORLDS[w - 1].orb} y el camino a ${WORLDS[w].name}.`,
+        lock: `Derrota al jefe del Mundo ${w}.`,
+        ok: devUnlock || worldDone(w)
+      });
+    });
+    list.push({ kind: 'ending', name: 'Final', note: 'Cómo termina la historia.', lock: 'Derrota al jefe del Mundo 5.', ok: canSeeEnding() });
+    list.push({ kind: 'thanks', name: 'Agradecimiento', note: 'Todos te dan las gracias.', lock: 'Supera el nivel secreto.', ok: devUnlock || progress.secretCleared });
+    return list;
+  }
+
   function renderOptions() {
-    const endBtn = $('opt-ending');
-    endBtn.disabled = !canSeeEnding();
-    $('opt-ending-note').textContent = canSeeEnding()
-      ? 'Vuelve a ver cómo termina la historia.'
-      : 'Se desbloquea al derrotar al jefe del Mundo 5.';
+    $('opt-films').innerHTML = filmList().map((f) => `
+      <div class="film-row${f.ok ? '' : ' is-locked'}">
+        <div><b>${f.name}</b><span>${f.ok ? f.note : '🔒 ' + f.lock}</span></div>
+        <button class="btn-secondary btn-small" type="button" data-film="${f.kind}" ${f.ok ? '' : 'disabled'} aria-label="Ver ${f.name}">${f.ok ? 'VER' : '🔒'}</button>
+      </div>`).join('');
     optSound.setAttribute('aria-checked', AudioEngine.muted ? 'false' : 'true');
     syncRange.value = String(progress.offsetMs);
     syncValue.textContent = (progress.offsetMs > 0 ? '+' : '') + progress.offsetMs + ' ms';
@@ -2225,6 +2308,33 @@
       ${specks}
       <g fill="#FF5E57"><ellipse cx="250" cy="200" rx="9" ry="6"/><ellipse cx="350" cy="200" rx="9" ry="6"/></g>
       <path d="M270 228 Q300 218 330 228" fill="none" stroke="#FF5E57" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  // Nube jefe para los niveles: compacta, con cara de villano
+  function bossCloudSVG() {
+    return `<svg viewBox="0 0 160 112" aria-hidden="true">
+      <g fill="#1E1933" transform="translate(0 6)">
+        <circle cx="40" cy="62" r="30"/><circle cx="80" cy="46" r="38"/><circle cx="121" cy="62" r="29"/>
+        <rect x="22" y="58" width="117" height="36" rx="18"/>
+      </g>
+      <g fill="#3A3354">
+        <circle cx="40" cy="62" r="30"/><circle cx="80" cy="46" r="38"/><circle cx="121" cy="62" r="29"/>
+        <rect x="22" y="58" width="117" height="36" rx="18"/>
+      </g>
+      <g fill="#4E4670">
+        <circle cx="66" cy="28" r="12"/><circle cx="30" cy="52" r="8"/><circle cx="106" cy="40" r="7"/>
+      </g>
+      <g stroke="#8E86A8" stroke-width="2" stroke-linecap="round" opacity="0.55">
+        <path d="M30 80 h8 M118 84 h10 M58 22 h6 M100 26 h7"/>
+      </g>
+      <path d="M50 52 L70 60 M110 52 L90 60" stroke="#1A0F33" stroke-width="5" stroke-linecap="round"/>
+      <ellipse cx="64" cy="66" rx="8" ry="7" fill="#FF5E57"/>
+      <ellipse cx="96" cy="66" rx="8" ry="7" fill="#FF5E57"/>
+      <circle cx="66" cy="64" r="2.4" fill="#FFF4E6"/>
+      <circle cx="98" cy="64" r="2.4" fill="#FFF4E6"/>
+      <path d="M64 86 Q72 80 80 84 Q88 80 96 86" fill="none" stroke="#FF5E57" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M140 72 L132 88 L139 88 L133 104 L148 84 L141 84 L147 72 Z" fill="#FFD23F" stroke="#1A0F33" stroke-width="2" stroke-linejoin="round"/>
     </svg>`;
   }
 
@@ -2381,7 +2491,382 @@
       `<div class="buddy st-who ${cls}" style="--i:${i};--x:${fx[i]}%">${characterSVG(f)}</div>`).join('');
   }
 
+
+  /* ---------------- Cinemáticas de mundo ----------------
+     Al vencer por primera vez al jefe de los mundos 1 a 4: el lore del
+     ritmo recuperado y el viaje de Pum al siguiente mundo. */
+  const TRAVEL = {
+    1: { vehicle: 'car', to: 'al Bosque Colorido', mus: 'chip', chords: 'c',
+      text: 'Pum sube al carro y toma la carretera rumbo al Bosque Colorido...' },
+    2: { vehicle: 'rocket', to: 'a la Órbita Lunar', mus: 'final', chords: 'd',
+      text: '¡Despegue! Pum vuela en una nave espacial rumbo a la Órbita Lunar...' },
+    3: { vehicle: 'boat', to: 'a Neo Ciudad', mus: 'marimba', chords: 'f',
+      text: 'La nave cae al mar y Pum navega en barco hacia las luces de Neo Ciudad...' },
+    4: { vehicle: 'plane', to: 'al Gran Final', mus: 'funk', chords: 'c',
+      text: 'Pum toma un avión rumbo al gran concierto final...' }
+  };
+
+  // Pum en miniatura (para ir dentro de los vehículos)
+  function pumHead(x, y, sc) {
+    return `<g transform="translate(${x} ${y}) scale(${sc})">
+      <path d="M0 -16 Q-1 -28 9 -33" fill="none" stroke="#6A47E0" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="9" cy="-34" r="4.5" fill="#FFD23F"/>
+      <ellipse cx="0" cy="2" rx="23" ry="21" fill="#8F6BFF"/>
+      <ellipse cx="-8" cy="-1" rx="5.5" ry="6.5" fill="#fff"/><ellipse cx="8" cy="-1" rx="5.5" ry="6.5" fill="#fff"/>
+      <circle cx="-6.5" cy="0" r="3.2" fill="#1A0F33"/><circle cx="9.5" cy="0" r="3.2" fill="#1A0F33"/>
+      <ellipse cx="-14" cy="9" rx="4" ry="2.6" fill="#FF8FB8"/><ellipse cx="14" cy="9" rx="4" ry="2.6" fill="#FF8FB8"/>
+      <path d="M-6 10 Q0 16 6 10" fill="none" stroke="#1A0F33" stroke-width="2.6" stroke-linecap="round"/>
+    </g>`;
+  }
+
+  function vehicleSVG(kind) {
+    if (kind === 'car') {
+      return `<svg viewBox="0 0 260 150" aria-hidden="true">
+        <ellipse cx="130" cy="138" rx="105" ry="8" fill="rgba(0,0,0,0.35)"/>
+        <path d="M70 62 Q82 30 120 28 L160 28 Q190 30 204 62 Z" fill="#B8E4FF" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <rect x="133" y="32" width="6" height="30" fill="#1A0F33"/>
+        ${pumHead(104, 52, 0.95)}
+        <path d="M24 100 Q24 66 60 62 L214 62 Q246 66 246 100 L246 112 Q246 120 238 120 L32 120 Q24 120 24 112 Z" fill="#FF4D8D" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <rect x="40" y="84" width="196" height="8" rx="4" fill="#FFD23F"/>
+        <circle cx="238" cy="80" r="7" fill="#FFF4E6" stroke="#1A0F33" stroke-width="3"/>
+        <rect x="18" y="80" width="12" height="10" rx="3" fill="#FF5E57" stroke="#1A0F33" stroke-width="3"/>
+        <g class="wf-wheel"><circle cx="70" cy="120" r="22" fill="#1A0F33"/><circle cx="70" cy="120" r="9" fill="#B5A6DA"/><rect x="67" y="102" width="6" height="36" fill="#B5A6DA"/></g>
+        <g class="wf-wheel"><circle cx="194" cy="120" r="22" fill="#1A0F33"/><circle cx="194" cy="120" r="9" fill="#B5A6DA"/><rect x="191" y="102" width="6" height="36" fill="#B5A6DA"/></g>
+        <g class="wf-puff"><circle cx="8" cy="104" r="7" fill="#E8E0FF" opacity="0.7"/><circle cx="-6" cy="98" r="5" fill="#E8E0FF" opacity="0.5"/></g>
+      </svg>`;
+    }
+    if (kind === 'rocket') {
+      return `<svg viewBox="0 0 140 280" aria-hidden="true">
+        <g class="wf-flame"><path d="M48 214 Q70 290 92 214 Z" fill="#FFD23F"/><path d="M56 214 Q70 262 84 214 Z" fill="#FF8F5A"/></g>
+        <path d="M30 170 L6 220 L42 204 Z" fill="#FF4D8D" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M110 170 L134 220 L98 204 Z" fill="#FF4D8D" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M70 10 Q118 60 112 170 L104 214 L36 214 L28 170 Q22 60 70 10 Z" fill="#EDEFF7" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M70 10 Q96 34 104 60 L36 60 Q44 34 70 10 Z" fill="#FF5E57" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <circle cx="70" cy="108" r="30" fill="#1B2A55" stroke="#1A0F33" stroke-width="4"/>
+        ${pumHead(70, 112, 0.95)}
+        <circle cx="70" cy="108" r="30" fill="none" stroke="#C9D0E8" stroke-width="5"/>
+        <rect x="58" y="160" width="24" height="40" rx="6" fill="#7CC8FF" stroke="#1A0F33" stroke-width="3"/>
+      </svg>`;
+    }
+    if (kind === 'boat') {
+      return `<svg viewBox="0 0 280 190" aria-hidden="true">
+        <line x1="150" y1="14" x2="150" y2="96" stroke="#1A0F33" stroke-width="5"/>
+        <path d="M152 18 L196 32 L152 46 Z" fill="#FF7EDB" stroke="#1A0F33" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M150 20 L80 30" stroke="#FFD23F" stroke-width="2" stroke-dasharray="2 8" stroke-linecap="round"/>
+        <rect x="88" y="66" width="104" height="52" rx="10" fill="#EDEFF7" stroke="#1A0F33" stroke-width="4"/>
+        <rect x="104" y="76" width="44" height="34" rx="8" fill="#B8E4FF" stroke="#1A0F33" stroke-width="3"/>
+        ${pumHead(126, 98, 0.75)}
+        <circle cx="170" cy="92" r="9" fill="#B8E4FF" stroke="#1A0F33" stroke-width="3"/>
+        <path d="M18 118 L262 118 Q250 168 210 172 L70 172 Q34 168 18 118 Z" fill="#3A3354" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+        <rect x="34" y="132" width="214" height="8" rx="4" fill="#FF4D8D"/>
+        <rect x="50" y="146" width="186" height="5" rx="2.5" fill="#3DF5C2"/>
+      </svg>`;
+    }
+    // avión
+    return `<svg viewBox="0 0 300 150" aria-hidden="true">
+      <path d="M150 74 L110 132 L140 132 L192 78 Z" fill="#B5A6DA" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M40 66 L14 24 L44 24 L76 62 Z" fill="#FF4D8D" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M30 66 Q30 50 60 50 L240 50 Q290 52 292 78 Q290 102 240 104 L60 104 Q30 102 30 88 Z" fill="#FFF4E6" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M248 56 Q280 60 284 76 L248 76 Z" fill="#7CC8FF" stroke="#1A0F33" stroke-width="3"/>
+      <rect x="196" y="62" width="34" height="26" rx="10" fill="#B8E4FF" stroke="#1A0F33" stroke-width="3"/>
+      ${pumHead(213, 80, 0.62)}
+      <g fill="#7CC8FF" stroke="#1A0F33" stroke-width="2.5">
+        <circle cx="168" cy="72" r="7"/><circle cx="146" cy="72" r="7"/><circle cx="124" cy="72" r="7"/><circle cx="102" cy="72" r="7"/><circle cx="80" cy="72" r="7"/>
+      </g>
+      <rect x="40" y="92" width="200" height="5" rx="2.5" fill="#FF4D8D"/>
+      <path d="M150 74 L118 22 L144 22 L186 70 Z" fill="#8F6BFF" stroke="#1A0F33" stroke-width="4" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  // Capas del viaje (fondos que se desplazan)
+  function travelLayers(kind) {
+    const rnd = mulberry(kind.length * 131);
+    const twice = (inner, vb) => `<svg viewBox="${vb}" preserveAspectRatio="none">${inner}</svg><svg viewBox="${vb}" preserveAspectRatio="none">${inner}</svg>`;
+    if (kind === 'car') {
+      let trees = '';
+      for (let i = 0; i < 9; i++) {
+        const x = 20 + i * 44 + rnd() * 16;
+        const c = ['#FF7EB6', '#FFB347', '#4CD9A0', '#B07CFF', '#FFD23F'][i % 5];
+        trees += `<rect x="${x - 3}" y="70" width="6" height="40" fill="#4A2E2A"/><circle cx="${x}" cy="62" r="${16 + rnd() * 8}" fill="${c}"/>`;
+      }
+      return `
+        <div class="wf-sky"></div><div class="wf-sun"></div>
+        <div class="wf-layer wf-far">${twice('<path d="M0 120 L0 70 Q50 30 100 62 T200 54 T300 60 T400 70 L400 120 Z" fill="#5B3F8C"/>', '0 0 400 120')}</div>
+        <div class="wf-layer wf-mid">${twice(trees + '<rect x="0" y="108" width="400" height="12" fill="#2B6E5E"/>', '0 0 400 120')}</div>
+        <div class="wf-road"><i></i></div>`;
+    }
+    if (kind === 'rocket') {
+      let streaks = '';
+      for (let i = 0; i < 60; i++) {
+        const x = rnd() * 200, y = rnd() * 400, l = 6 + rnd() * 22;
+        streaks += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="1.6" height="${l.toFixed(1)}" fill="#fff" opacity="${(0.3 + rnd() * 0.7).toFixed(2)}"/>`;
+      }
+      return `
+        <div class="wf-sky"></div>
+        <div class="wf-vlayer wf-stars">${twice(streaks, '0 0 200 400')}</div>
+        <div class="wf-moon"></div>
+        <div class="wf-earth"></div>`;
+    }
+    if (kind === 'boat') {
+      let city = '';
+      let x = 0;
+      while (x < 400) {
+        const w = 14 + rnd() * 22, h = 20 + rnd() * 60;
+        const c = rnd() < 0.5 ? '#3DF5C2' : '#FF4D8D';
+        city += `<rect x="${x.toFixed(1)}" y="${(100 - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="#160A33"/><rect x="${x.toFixed(1)}" y="${(100 - h).toFixed(1)}" width="${w.toFixed(1)}" height="2.5" fill="${c}"/>`;
+        x += w + 4;
+      }
+      const wave = (c) => `<path d="M0 30 Q25 18 50 30 T100 30 T150 30 T200 30 T250 30 T300 30 T350 30 T400 30 L400 80 L0 80 Z" fill="${c}"/>`;
+      return `
+        <div class="wf-sky"></div><div class="wf-moon"></div>
+        <div class="wf-skyline"><svg viewBox="0 0 400 100" preserveAspectRatio="none">${city}</svg></div>
+        <div class="wf-sea"></div>
+        <div class="wf-layer wf-wave1">${twice(wave('#24407A'), '0 0 400 80')}</div>`;
+    }
+    let clouds = '';
+    for (let i = 0; i < 6; i++) {
+      const cx = 30 + i * 66 + rnd() * 20, cy = 20 + rnd() * 70, r = 14 + rnd() * 12;
+      clouds += `<g fill="#FFFFFF" opacity="0.85"><circle cx="${cx}" cy="${cy}" r="${r}"/><circle cx="${cx + r}" cy="${cy + 4}" r="${r * 0.8}"/><circle cx="${cx - r}" cy="${cy + 5}" r="${r * 0.7}"/></g>`;
+    }
+    return `
+      <div class="wf-sky"></div><div class="wf-sun"></div>
+      <div class="wf-layer wf-cloudsfar">${twice(clouds, '0 0 400 120')}</div>`;
+  }
+
+  function travelFront(kind) {
+    const rnd = mulberry(kind.length * 977);
+    const twice = (inner, vb) => `<svg viewBox="${vb}" preserveAspectRatio="none">${inner}</svg><svg viewBox="${vb}" preserveAspectRatio="none">${inner}</svg>`;
+    if (kind === 'boat') {
+      return `<div class="wf-layer wf-wave2">${twice('<path d="M0 26 Q25 12 50 26 T100 26 T150 26 T200 26 T250 26 T300 26 T350 26 T400 26 L400 80 L0 80 Z" fill="#1B2E5C"/>', '0 0 400 80')}</div>`;
+    }
+    if (kind === 'plane') {
+      let clouds = '';
+      for (let i = 0; i < 4; i++) {
+        const cx = 50 + i * 100 + rnd() * 20, cy = 60 + rnd() * 40, r = 24 + rnd() * 14;
+        clouds += `<g fill="#FFFFFF"><circle cx="${cx}" cy="${cy}" r="${r}"/><circle cx="${cx + r}" cy="${cy + 6}" r="${r * 0.8}"/><circle cx="${cx - r}" cy="${cy + 8}" r="${r * 0.7}"/></g>`;
+      }
+      return `<div class="wf-layer wf-cloudsnear">${twice(clouds, '0 0 400 120')}</div>`;
+    }
+    return '';
+  }
+
+  function scheduleWorldMusic(t0, w) {
+    const A = AudioEngine;
+    const bus = A.runBus;
+    if (!bus) return;
+    const tv = TRAVEL[w];
+    const bar = (i) => t0 + i * STORY_BAR;
+    const groove = (i, mus, chord, intensity, fill) =>
+      Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus, chord, intensity, final: false, fill: !!fill }, bar(i));
+    const C = CH.c;
+    const here = worldLevels(w)[0].sections[0];
+    const next = worldLevels(w + 1)[0].sections[0];
+
+    // 1. El ritmo del mundo vuelve (con su propio groove, en tono mayor)
+    A.crash(bar(0), bus);
+    groove(0, here.mus, C[0], 3);
+    groove(1, here.mus, C[3], 3, true);
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => A.bell(bar(0) + 0.3 + i * 0.15, bus, f, 0.09));
+    // 2. La esfera vuela al contador de ritmos
+    A.pad(bar(2), bus, C[2].tones, 4);
+    A._noise(bar(2) + 0.1, bus, 'bandpass', 1400, 0.7, 0.16, 0.5, 0.5);
+    [1046.5, 1318.5, 1567.98].forEach((f) => A.bell(bar(2) + 1.3, bus, f, 0.08));
+    groove(3, MUS.arcade, C[3], 1);
+    // 3. El viaje
+    const tm = MUS[tv.mus];
+    const tc = CH[tv.chords];
+    groove(4, tm, tc[0], 2);
+    groove(5, tm, tc[1], 3);
+    groove(6, tm, tc[3], 3, true);
+    if (tv.vehicle === 'car') {
+      [0.2, 0.45].forEach((d) => A.lead(bar(4) + d, bus, 392, 0.16, 'square', 0.07));
+    } else if (tv.vehicle === 'rocket') {
+      A.kick(bar(4), bus, 1);
+      A._noise(bar(4), bus, 'lowpass', 600, 0.7, 0.35, 0.3, 2.2);
+    } else if (tv.vehicle === 'boat') {
+      A.lead(bar(4) + 0.1, bus, 110, 1.0, 'sawtooth', 0.08);
+      A.lead(bar(4) + 0.1, bus, 138.59, 1.0, 'sawtooth', 0.05);
+    } else {
+      A._noise(bar(4), bus, 'bandpass', 800, 0.6, 0.22, 0.6, 1.4);
+    }
+    // 4. Llegada al nuevo mundo (con su música)
+    A.crash(bar(7), bus);
+    groove(7, next.mus, next.chords[0], 3);
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => A.lead(bar(8) - 0.45 + i * 0.09, bus, f, 0.35, 'square', 0.06));
+    const CM = [261.63, 329.63, 392];
+    A.kick(bar(8), bus, 1);
+    A.crash(bar(8), bus);
+    A.stab(bar(8), bus, CM, 1.3);
+    A.pad(bar(8), bus, CM.map((f) => f * 2), 2.2);
+  }
+
+  function worldFilm(w) {
+    const world = WORLDS[w - 1];
+    const next = WORLDS[w];
+    const tv = TRAVEL[w];
+    const nextFirst = worldLevels(w + 1)[0];
+    return {
+      cls: `film-world film-${tv.vehicle}`,
+      scenes: [
+        { id: 'c1', at: 0, bob: 1, face: 'is-victory', text: world.win },
+        { id: 'c2', at: 4, bob: 1, face: 'is-victory', text: `${world.orb}: ${w} de 5 ritmos recuperados.` },
+        { id: 'c3', at: 8, bob: 1, face: '', text: tv.text },
+        { id: 'c4', at: 14, bob: 1, face: 'is-victory', text: `¡Llegaste ${tv.to}! ${next.charName.split(',')[0]} te estaba esperando.` }
+      ],
+      end: 17,
+      music: (t0) => scheduleWorldMusic(t0, w),
+      button: 'CONTINUAR',
+      build() {
+        if (!sceneCache[world.scene]) sceneCache[world.scene] = sceneSVG(world.scene);
+        if (!sceneCache[next.scene]) sceneCache[next.scene] = sceneSVG(next.scene);
+        const slots = WORLDS.map((x, i) =>
+          `<i class="wf-slot${i < w - 1 ? ' is-on' : ''}${i === w - 1 ? ' is-target' : ''}" style="--c:${x.color}"></i>`).join('');
+        return `
+          <div class="st-bg wf-bg-a">${sceneCache[world.scene]}</div>
+          <div class="wf-travel wf-${tv.vehicle}">
+            ${travelLayers(tv.vehicle)}
+            <div class="wf-vehicle">${vehicleSVG(tv.vehicle)}</div>
+            ${travelFront(tv.vehicle)}
+          </div>
+          <div class="st-bg wf-bg-b">${sceneCache[next.scene]}</div>
+          <div class="st-col">
+            <div class="wf-rays" style="--c:${world.color}"></div>
+            <div class="wf-slots">${slots}</div>
+            <div class="wf-orb" style="--c:${world.color}"><i></i></div>
+            <div class="wf-banner">
+              <span class="wf-banner-num">MUNDO ${w + 1}</span>
+              <span class="wf-banner-name" style="--c:${next.color}">${next.name.toUpperCase()}</span>
+            </div>
+            <div class="buddy st-who wf-pum">${characterSVG('pum')}</div>
+            <div class="buddy st-who wf-friend wf-friend-a">${characterSVG(world.char)}</div>
+            <div class="buddy st-who wf-friend wf-friend-b">${characterSVG(next.char)}</div>
+            <p class="st-cap" aria-live="polite"></p>
+            <button class="btn-primary st-play" type="button">${this.button}</button>
+          </div>
+          <div class="st-flash"></div>`;
+      },
+      enter(story, sc) {
+        const friends = story.el.querySelectorAll('.wf-friend');
+        friends.forEach((f) => f.classList.remove('is-victory'));
+        if (sc.id === 'c1' || sc.id === 'c2' || sc.id === 'c4') friends.forEach((f) => f.classList.add('is-victory'));
+        if (sc.id === 'c1' || sc.id === 'c4') story.flash('is-light');
+        if (sc.id === 'c2') {
+          // Calcula hacia dónde vuela la esfera (su lugar en el contador)
+          const orb = story.el.querySelector('.wf-orb');
+          const slot = story.el.querySelector('.wf-slot.is-target');
+          const a = orb.getBoundingClientRect();
+          const b = slot.getBoundingClientRect();
+          orb.style.setProperty('--fx', (b.left + b.width / 2 - (a.left + a.width / 2)).toFixed(1) + 'px');
+          orb.style.setProperty('--fy', (b.top + b.height / 2 - (a.top + a.height / 2)).toFixed(1) + 'px');
+        }
+      },
+      events: [],
+      done() {
+        openMap(Story.returnTo || nextFirst.id);
+      }
+    };
+  }
+
+  /* ---------------- Agradecimiento (al superar el nivel secreto) ---------------- */
+  const THANKS_CAST = [
+    { c: 'bolt', say: '¡Bip bup, gracias!', x: 3, b: 35, w: 21 },
+    { c: 'miso', say: '¡Miau-gracias!', x: 27, b: 35, w: 21 },
+    { c: 'nova', say: '¡Gracias, terrícola!', x: 51, b: 35, w: 21 },
+    { c: 'kage', say: '¡Arigató!', x: 75, b: 35, w: 21 },
+    { c: 'draco', say: '¡Eres una estrella!', x: 4, b: 6, w: 27 },
+    { c: 'pum', say: '¡Gracias por jugar!', x: 36, b: 5, w: 29 },
+    { c: 'lumi', say: '✨ ¡Gracias! ✨', x: 69, b: 6, w: 27 }
+  ];
+
+  function scheduleThanksMusic(t0) {
+    const A = AudioEngine;
+    const bus = A.runBus;
+    if (!bus) return;
+    const bar = (i) => t0 + i * STORY_BAR;
+    const groove = (i, mus, chord, intensity, fill) =>
+      Music.scheduleBar({ t: 0, beat: STORY_BEAT, mus, chord, intensity, final: false, fill: !!fill }, bar(i));
+    const C = CH.c;
+    A.crash(bar(0), bus);
+    groove(0, MUS.prismA, C[0], 2);
+    groove(1, MUS.prismA, C[1], 3, true);
+    // Una campanita por cada personaje que aparece
+    THANKS_CAST.forEach((_, i) => A.bell(bar(0) + 0.2 + i * 0.45, bus, [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1318.5][i], 0.07));
+    groove(2, MUS.marimba, C[2], 3);
+    groove(3, MUS.marimba, C[3], 3, true);
+    // Una nota por cada "¡gracias!"
+    THANKS_CAST.forEach((_, i) => A.bell(bar(2) + 0.25 + i * 0.5, bus, [783.99, 880, 1046.5, 880, 1046.5, 1318.5, 1567.98][i], 0.06));
+    // Reverencia final
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => A.lead(bar(4) - 0.45 + i * 0.09, bus, f, 0.35, 'square', 0.06));
+    const CM = [261.63, 329.63, 392];
+    A.kick(bar(4), bus, 1);
+    A.crash(bar(4), bus);
+    groove(4, MUS.prismB, C[0], 3);
+    groove(5, MUS.prismB, C[3], 3, true);
+    A.kick(bar(6), bus, 1);
+    A.crash(bar(6), bus);
+    A.stab(bar(6), bus, CM, 1.4);
+    A.pad(bar(6), bus, CM.map((f) => f * 2), 2.6);
+    A.bass(bar(6), bus, 65.41, 2, 'sawtooth');
+  }
+
   const FILMS = {
+    thanks: {
+      scenes: [
+        { id: 't1', at: 0, bob: 1, face: '', text: '¡Lo lograste! Encontraste el sexto ritmo.' },
+        { id: 't2', at: 4, bob: 1, face: '', text: 'Todos en Beat City quieren decirte algo...' },
+        { id: 't3', at: 8, bob: 0, face: '', text: '' }
+      ],
+      end: 11.5,
+      music: scheduleThanksMusic,
+      button: 'CONTINUAR',
+      build() {
+        if (!sceneCache.prism) sceneCache.prism = sceneSVG('prism');
+        const cast = THANKS_CAST.map((m, i) =>
+          `<div class="buddy st-who th-c${i % 2 ? ' th-up' : ''}${i === 0 ? ' th-edge' : ''}" style="--i:${i};--x:${m.x}%;--b:${m.b}%;--w:${m.w}%">
+            <span class="th-bubble">${m.say}</span>${characterSVG(m.c)}</div>`).join('');
+        return `
+          <div class="st-bg">${sceneCache.prism}</div>
+          <div class="confetti en-confetti"></div>
+          <div class="st-col">
+            <div class="th-text">
+              <div class="logo" aria-label="Beat Rush"><span>BEAT</span><span>RUSH</span></div>
+              <p class="th-big">¡GRACIAS POR TOMARTE EL TIEMPO DE JUGAR!</p>
+              <p class="th-small">Todo Beat City te lo agradece 💜</p>
+            </div>
+            <div class="en-nubi is-friend th-nubi"><div class="en-nubi-in">${nubiSVG()}</div></div>
+            ${cast}
+            <p class="st-cap" aria-live="polite"></p>
+            <div class="st-pum" hidden></div>
+            <button class="btn-primary st-play" type="button">${this.button}</button>
+          </div>
+          <div class="st-flash"></div>`;
+      },
+      enter(story, sc) {
+        const cast = story.el.querySelectorAll('.th-c');
+        cast.forEach((c) => c.classList.remove('is-victory', 'is-perfect'));
+        if (sc.id === 't2') cast.forEach((c) => c.classList.add('is-victory'));
+        if (sc.id === 't3') {
+          cast.forEach((c) => c.classList.add('is-perfect'));
+          story.flash('is-light');
+          if (!reducedMotion) {
+            const cols = ['#FF5E57', '#FFB347', '#FFD23F', '#3DF5C2', '#7CC8FF', '#B07CFF', '#FF7EDB'];
+            let html = '';
+            for (let i = 0; i < 50; i++) {
+              html += `<i style="left:${(Math.random() * 100).toFixed(1)}%;background:${cols[i % cols.length]};animation-delay:${(Math.random() * 2.5).toFixed(2)}s;animation-duration:${(2.6 + Math.random() * 2).toFixed(2)}s"></i>`;
+            }
+            story.el.querySelector('.en-confetti').innerHTML = html;
+          }
+        }
+      },
+      events: [],
+      done() {
+        progress.thanksSeen = true;
+        Store.save(progress);
+        renderTitle();
+        showScreen('title');
+      }
+    },
+
     intro: {
       scenes: STORY_SCENES,
       end: STORY_END,
@@ -2506,14 +2991,18 @@
     done: false,
     token: 0,
 
-    async play(kind) {
+    returnTo: null,
+
+    async play(kind, returnTo) {
       if (currentScreen === 'story') return;
       const token = ++this.token;
       this.stop();
+      if (kind && kind.indexOf('world') === 0 && !FILMS[kind]) FILMS[kind] = worldFilm(+kind.slice(5));
       this.film = FILMS[kind] || FILMS.intro;
+      this.returnTo = returnTo || null;
       this.el.innerHTML = this.film.build();
       this.el.querySelector('.st-play').addEventListener('click', () => this.finish());
-      this.el.className = 'story film-' + (kind || 'intro');
+      this.el.className = 'story ' + (this.film.cls || 'film-' + (kind || 'intro'));
       this.el.style.setProperty('--bob', '1');
       this.sceneIdx = -1;
       this.eventIdx = 0;
@@ -2572,9 +3061,11 @@
       const sc = this.film.scenes[i];
       this.el.classList.add('at-' + sc.id);
       this.el.style.setProperty('--bob', String(sc.bob));
-      const pum = this.el.querySelector('.st-pum');
-      pum.classList.remove('is-sad', 'is-shock', 'is-victory');
-      if (sc.face) pum.classList.add(sc.face);
+      const pum = this.el.querySelector('.st-pum, .wf-pum');
+      if (pum) {
+        pum.classList.remove('is-sad', 'is-shock', 'is-victory');
+        if (sc.face) pum.classList.add(sc.face);
+      }
       const cap = this.el.querySelector('.st-cap');
       cap.textContent = sc.text;
       cap.classList.remove('is-on');
@@ -2604,6 +3095,11 @@
       this.stop();
       const film = this.film;
       this.el.innerHTML = '';
+      if (this.returnTo === 'options') {
+        renderOptions();
+        showScreen('options');
+        return;
+      }
       film.done();
     }
   };
@@ -2679,6 +3175,7 @@
 
   function resetBoss() {
     bossEl.classList.remove('is-sing', 'is-hurt', 'is-gone', 'is-laugh');
+    bossFill.classList.remove('is-final');
     bossFill.style.width = '100%';
     stage.classList.remove('is-dark');
   }
@@ -2742,7 +3239,7 @@
     const bottom = 14;
     L.padTop = L.H - bottom - L.padH;
     L.targetY = L.padTop - 12 - L.ringR;
-    L.laneTop = state.level && state.level.boss ? 96 : 8;
+    L.laneTop = state.level && state.level.boss ? 112 : 8;
 
     const bw = clamp(Math.min(L.W * 0.24, L.H * 0.3), 56, 132);
     const bh = bw * (140 / 150);
@@ -3027,7 +3524,8 @@
   }
 
   function resetBuddy() {
-    buddyGame.classList.remove('is-perfect', 'is-good', 'is-miss', 'is-swing', 'is-victory', 'is-defeat');
+    buddyGame.classList.remove('is-perfect', 'is-good', 'is-miss', 'is-swing', 'is-victory', 'is-defeat', 'is-lose');
+    screens.game.classList.remove('is-lost');
     if (buddyBody) buddyBody.style.transform = '';
   }
 
@@ -3126,6 +3624,7 @@
     const m = comboMult(state.combo);
     hudMult.textContent = m > 1 ? '×' + m : '';
     hudAcc.textContent = accuracy() + '%';
+    hudAcc.classList.toggle('is-low', judgedTotal() >= 6 && accuracy() < PASS_PRECISION);
     if (kind === 'hit' || kind === 'break') {
       hudComboWrap.classList.remove('is-bump', 'is-milestone', 'is-break');
       void hudComboWrap.offsetWidth;
@@ -3265,16 +3764,30 @@
     }
     if (!state.finShown && s >= song.finT) {
       state.finShown = true;
-      const passed = score100() >= PASS_SCORE;
-      if (state.level.boss) {
-        bossEl.classList.add(passed ? 'is-gone' : 'is-laugh');
-        flashCallout(passed ? '¡SILENCIO DERROTADO!' : '¡EL SILENCIO RESISTE!', 'end');
-      } else {
-        flashCallout(passed ? '¡NIVEL SUPERADO!' : '¡FIN!', 'end');
-      }
+      const passed = accuracy() >= PASS_PRECISION;
       buddyGame.classList.remove('is-perfect', 'is-good', 'is-miss');
-      buddyGame.classList.add(passed ? 'is-victory' : 'is-defeat');
-      if (passed) AudioEngine.fanfare(false);
+      if (passed) {
+        if (state.level.secret || state.level.boss) setWorldColor(sceneEl, 1, true);
+        else setWorldColor(sceneEl, state.level.idx / 4);
+        if (state.level.boss) {
+          bossFill.classList.add('is-final');
+          bossFill.style.width = '0%';
+          bossEl.classList.add('is-gone');
+          flashCallout('¡SILENCIO DERROTADO!', 'end');
+        } else {
+          flashCallout('¡NIVEL SUPERADO!', 'end');
+        }
+        buddyGame.classList.add('is-victory');
+        AudioEngine.fanfare(false);
+      } else {
+        // Derrota: la música se apaga, todo pierde color y el personaje se pone triste
+        if (state.level.boss) bossEl.classList.add('is-laugh');
+        flashCallout('¡PERDISTE!', 'lose', state.level.boss ? 'El Gran Silencio resiste...' : 'Necesitas 50% de precisión');
+        buddyGame.classList.add('is-lose');
+        screens.game.classList.add('is-lost');
+        AudioEngine.fadeRun(0.5);
+        AudioEngine.lose();
+      }
     }
   }
 
@@ -3349,17 +3862,27 @@
     resetBoss();
   }
 
+  /* Color del escenario: sin ritmo el mundo se ve apagado; al avanzar se llena de color.
+     step 0 = primer nivel del mundo (casi gris), step 1 = jefe (color completo). */
+  function setWorldColor(el, step, boost) {
+    const k = clamp(step, 0, 1);
+    el.style.setProperty('--sat', (boost ? 1.2 : 0.12 + 0.88 * k).toFixed(2));
+    el.style.setProperty('--bri', (boost ? 1.05 : 0.66 + 0.34 * k).toFixed(2));
+  }
+  const levelColorStep = (level) => (level.secret ? 1 : (level.idx - 1) / 4);
+
   function prepareLevelVisuals(level) {
     if (!sceneCache[level.scene]) sceneCache[level.scene] = sceneSVG(level.scene);
     sceneEl.innerHTML = sceneCache[level.scene];
     sceneEl.dataset.scene = level.scene;
+    setWorldColor(sceneEl, levelColorStep(level));
     buddyGame.innerHTML = characterSVG(level.char);
     buddyBody = buddyGame.querySelector('.b-body');
     hudLevel.textContent = level.hud;
     stage.classList.toggle('is-boss', !!level.boss);
     bossEl.hidden = !level.boss;
     if (level.boss) {
-      if (!cloudCache) cloudCache = cloudSVG();
+      if (!cloudCache) cloudCache = bossCloudSVG();
       if (!bossCloud.firstChild) bossCloud.innerHTML = cloudCache;
       $('boss-name').textContent = WORLDS[level.world - 1].bossName.toUpperCase();
     }
@@ -3410,16 +3933,19 @@
      ========================================================= */
   function recordResult(level, res) {
     const r = Object.assign({ best: 0, acc: 0, combo: 0, points: 0, plays: 0 }, progress.levels[level.id]);
-    const isRecord = r.plays > 0 && res.score > r.best;
+    const passed = res.acc >= PASS_PRECISION;
+    const isRecord = passed && r.plays > 0 && res.score > r.best;
     const prevBest = r.best;
-    r.best = Math.max(r.best, res.score);
-    r.acc = Math.max(r.acc, res.acc);
+    // La mejor nota sólo cuenta en partidas superadas
+    if (passed) r.best = Math.max(r.best, res.score);
+    // Mejor precisión: sólo de partidas superadas (de ella salen las estrellas)
+    if (passed) r.acc = Math.max(r.acc, res.acc);
     r.combo = Math.max(r.combo, res.combo);
     r.points = Math.max(r.points, res.points);
     r.plays += 1;
     progress.levels[level.id] = r;
 
-    const out = { isRecord, unlockedLevel: null, secretNew: false, secretClearedNow: false, passed: res.score >= PASS_SCORE };
+    const out = { isRecord, unlockedLevel: null, secretNew: false, secretClearedNow: false, passed };
     out.bossFirstWin = !!level.boss && out.passed && prevBest < PASS_SCORE;
     if (out.passed && !level.secret && level.num < MAIN_LEVELS.length && progress.unlocked < level.num + 1) {
       progress.unlocked = level.num + 1;
@@ -3452,23 +3978,25 @@
       combo: state.maxCombo,
       points: state.score
     };
-    const rating = ratingFor(res.score);
     const outcome = recordResult(level, res);
-    const stars = scoreToStars(res.score);
+    const rating = outcome.passed ? ratingFor(res.acc) : 'F';
+    const stars = outcome.passed ? accToStars(res.acc) : 0;
 
     const world = level.secret ? null : WORLDS[level.world - 1];
     $('res-level').textContent = level.secret
       ? `Nivel secreto: ${level.name}`
       : `Mundo ${level.world}: ${world.name}. ${level.boss ? 'Jefe' : 'Nivel ' + level.code}`;
-    let title = outcome.passed ? '¡NIVEL SUPERADO!' : 'RESULTADO';
-    if (level.boss) title = outcome.passed ? '¡SILENCIO DERROTADO!' : 'EL SILENCIO RESISTE';
+    let title = outcome.passed ? '¡NIVEL SUPERADO!' : '¡PERDISTE!';
+    if (level.boss && outcome.passed) title = '¡SILENCIO DERROTADO!';
     if (outcome.secretClearedNow) title = '¡LEYENDA DEL RITMO!';
     $('res-title').textContent = title;
     $('res-score').textContent = '0';
     $('res-stars').innerHTML = starsHTML(stars);
     const ratingEl = $('res-rating');
-    ratingEl.textContent = rating;
+    ratingEl.textContent = outcome.passed ? rating : '✖';
     ratingEl.dataset.rating = rating;
+    $('res-rating-label').textContent = outcome.passed ? 'RATING' : 'SIN CALIFICACIÓN';
+    screens.result.classList.toggle('is-lost', !outcome.passed);
     $('res-phrase').textContent = pick(PHRASES[rating]);
     $('res-record').hidden = !outcome.isRecord;
     $('res-acc').textContent = res.acc + '%';
@@ -3478,7 +4006,9 @@
     $('res-good').textContent = state.good;
     $('res-miss').textContent = state.miss + state.stray;
     const best = rec(level);
-    $('res-best').textContent = `Tu mejor marca: ${best.best}/100, precisión ${best.acc}%, combo ${best.combo}`;
+    $('res-best').textContent = best.best >= PASS_SCORE
+      ? `Tu mejor marca: ${best.best}/100, precisión ${best.acc}%, combo ${best.combo}`
+      : 'Todavía no superas este nivel. ¡Tú puedes!';
 
     const unlockEl = $('res-unlock');
     unlockEl.className = 'unlock';
@@ -3500,23 +4030,23 @@
     } else if (outcome.unlockedLevel) {
       unlockEl.textContent = `🔓 ¡Nivel ${outcome.unlockedLevel.code} desbloqueado!`;
       unlockEl.hidden = false;
-    } else if (!outcome.passed && level.boss && !worldDone(level.world)) {
-      unlockEl.textContent = `Consigue ${PASS_SCORE} o más para derrotar a la nube. Escucha bien cuando la pantalla se oscurezca.`;
+    } else if (!outcome.passed && level.boss) {
+      unlockEl.textContent = `Tu precisión fue ${res.acc}%. Necesitas al menos ${PASS_PRECISION}% para derrotar a la nube. Escucha bien cuando la pantalla se oscurezca.`;
       unlockEl.classList.add('is-hint');
       unlockEl.hidden = false;
-    } else if (!outcome.passed && !level.secret && level.num < MAIN_LEVELS.length && !isUnlocked(MAIN_LEVELS[level.num])) {
-      unlockEl.textContent = `Consigue ${PASS_SCORE} o más para desbloquear el nivel ${MAIN_LEVELS[level.num].code}.`;
+    } else if (!outcome.passed) {
+      unlockEl.textContent = `Tu precisión fue ${res.acc}%. Necesitas al menos ${PASS_PRECISION}% para superar el nivel.`;
       unlockEl.classList.add('is-hint');
       unlockEl.hidden = false;
     } else if (!level.secret && outcome.passed && stars < 5 && !isUnlocked(SECRET_LEVEL)) {
-      unlockEl.textContent = `Con ${FIVE_STARS} o más ganas las 5 estrellas. Juntarlas todas abre el secreto.`;
+      unlockEl.textContent = `Con ${FIVE_STARS}% de precisión o más ganas las 5 estrellas. Juntarlas todas abre el secreto.`;
       unlockEl.classList.add('is-hint');
       unlockEl.hidden = false;
     }
 
     // Personaje del nivel celebrando o mareado
     buddyResult.innerHTML = characterSVG(level.char);
-    buddyResult.className = 'buddy buddy--result ' + (outcome.passed ? 'is-victory' : 'is-defeat');
+    buddyResult.className = 'buddy buddy--result ' + (outcome.passed ? 'is-victory' : 'is-lose');
 
     // Botones
     const btnNext = $('btn-next');
@@ -3530,9 +4060,13 @@
     } else if (outcome.passed && outcome.secretNew) {
       primary = { label: 'NIVEL SECRETO', action: () => startLevel(SECRET_LEVEL.id) };
     } else if (outcome.passed && level.boss && nextMain && isUnlocked(nextMain)) {
-      primary = { label: 'SIGUIENTE MUNDO', action: () => openMap(nextMain.id) };
+      primary = outcome.bossFirstWin && TRAVEL[level.world]
+        ? { label: `¡VIAJAR AL MUNDO ${level.world + 1}!`, action: () => Story.play('world' + level.world, nextMain.id) }
+        : { label: 'SIGUIENTE MUNDO', action: () => openMap(nextMain.id) };
     } else if (outcome.passed && nextMain && isUnlocked(nextMain)) {
       primary = { label: 'SIGUIENTE NIVEL', action: () => startLevel(nextMain.id) };
+    } else if (outcome.passed && outcome.secretClearedNow) {
+      primary = { label: 'CONTINUAR ✨', action: () => Story.play('thanks') };
     } else if (outcome.passed) {
       primary = { label: 'MAPA', action: () => openMap(level.id) };
     } else {
@@ -3688,9 +4222,10 @@
   $('btn-gate-start').addEventListener('click', () => Story.play());
   $('btn-gate-skip').addEventListener('click', () => skipGate());
   $('btn-title-story').addEventListener('click', () => Story.play());
-  $('opt-story').addEventListener('click', () => Story.play());
-  $('opt-ending').addEventListener('click', () => {
-    if (canSeeEnding()) Story.play('ending');
+  $('opt-films').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-film]');
+    if (!b || b.disabled) return;
+    Story.play(b.dataset.film, 'options');
   });
   $('btn-story-skip').addEventListener('click', () => Story.finish());
   $('btn-options').addEventListener('click', () => { renderOptions(); showScreen('options'); });

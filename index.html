@@ -8,7 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Beat Rush</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='24' fill='%238F6BFF'/%3E%3Ccircle cx='24' cy='32' r='5' fill='%23fff'/%3E%3Ccircle cx='40' cy='32' r='5' fill='%23fff'/%3E%3Ccircle cx='46' cy='8' r='6' fill='%23FFD23F'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icono-512.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <!-- Fuentes opcionales: sin internet el juego usa fuentes del sistema -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,24 +120,14 @@
             <li><span class="dot dot--third"></span>Tresillo</li>
             <li><span class="dot dot--quarter"></span>Golpe rapidísimo (semicorchea)</li>
           </ul>
-          <p>Hay 5 mundos con 5 niveles cada uno. Saca 50 o más para desbloquear el siguiente nivel. El quinto nivel de cada mundo es un jefe: cuando la pantalla se oscurezca, repite de oído el ritmo que acaba de tocar la nube.</p>
-          <p>Con 95 o más en un nivel ganas 5 estrellas. Junta las 125 para descubrir el nivel secreto.</p>
+          <p>Hay 5 mundos con 5 niveles cada uno. Supera cada nivel con al menos 50% de precisión para desbloquear el siguiente; si no llegas, pierdes y lo vuelves a intentar. El quinto nivel de cada mundo es un jefe: cuando la pantalla se oscurezca, repite de oído el ritmo que acaba de tocar la nube.</p>
+          <p>Tu precisión decide la letra y las estrellas: S (95% o más) da 5 estrellas, A 4, B 3, C 2 y D 1. Junta las 125 estrellas para descubrir el nivel secreto.</p>
         </div>
 
-        <div class="opt-group opt-row">
-          <div>
-            <h3>Historia</h3>
-            <p>Vuelve a ver la introducción del juego.</p>
-          </div>
-          <button id="opt-story" class="btn-secondary btn-small" type="button">VER</button>
-        </div>
-
-        <div class="opt-group opt-row">
-          <div>
-            <h3>Final</h3>
-            <p id="opt-ending-note">Se desbloquea al derrotar al jefe del Mundo 5.</p>
-          </div>
-          <button id="opt-ending" class="btn-secondary btn-small" type="button">VER</button>
+        <div class="opt-group">
+          <h3>Cinemáticas</h3>
+          <p>Vuelve a ver las escenas de la historia que ya desbloqueaste.</p>
+          <div id="opt-films" class="film-list"></div>
         </div>
 
         <div class="opt-group">
@@ -218,7 +210,7 @@
             <div id="res-stars" class="stars" aria-hidden="true"></div>
           </div>
           <div class="rating-wrap">
-            <span class="rating-label">RATING</span>
+            <span id="res-rating-label" class="rating-label">RATING</span>
             <span id="res-rating" class="rating" data-rating="A">A</span>
           </div>
         </div>
