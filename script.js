@@ -486,7 +486,19 @@
     tags: []
   });
 
-  const MAIN_LEVELS = LEVELS.filter((l) => !l.secret);
+  // Práctica del tutorial: lenta, con márgenes amplios y sin posibilidad de perder
+  LEVELS.push({
+    id: 'T', code: 'T', num: 0, secret: false, tutorial: true, world: 1, idx: 5, boss: false,
+    name: 'Práctica', difficulty: 'Tutorial', char: 'pum', charName: 'Pum',
+    scene: 'arcade', color: '#FF4D8D', accent: '255, 77, 141', hitWave: 'square',
+    approach: 2.0, win: [0.12, 0.22],
+    intro: ['¡PRÁCTICA!', 'Toca cuando la bolita llegue al aro'],
+    hud: 'Práctica',
+    sections: [{ bpm: 88, mus: MUS.arcade, chords: CH.am, bars: [[0, 2], [0, 2], [0, 1, 2, 3], [0]] }],
+    tags: []
+  });
+
+  const MAIN_LEVELS = LEVELS.filter((l) => !l.secret && !l.tutorial);
   const SECRET_LEVEL = LEVELS.find((l) => l.secret);
   const levelById = (id) => LEVELS.find((l) => l.id === id);
   const worldLevels = (w) => MAIN_LEVELS.filter((l) => l.world === w);
@@ -505,6 +517,12 @@
   const fmt = (n) => Math.round(n).toLocaleString('es-MX');
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const $ = (id) => document.getElementById(id);
+  // Conecta un evento sólo si el elemento existe (así un index.html distinto no rompe el juego)
+  const on = (id, ev, fn, opts) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(ev, fn, opts);
+    else if (window.console) console.warn('Beat Rush: no encontré #' + id + ' en index.html');
+  };
   const near = (a, b) => Math.abs(a - b) < 0.01;
 
   function mulberry(seed) {
@@ -1109,6 +1127,11 @@
       this.sfx.gain.value = 1;
       this.sfx.connect(this.master);
 
+      // Toda la música (menús, niveles y cinemáticas) pasa por este bus: lo controla "Volumen de la música"
+      this.musicBus = c.createGain();
+      this.musicBus.gain.value = this.musicGain();
+      this.musicBus.connect(this.master);
+
       const len = Math.floor(c.sampleRate);
       const buf = c.createBuffer(1, len, c.sampleRate);
       const data = buf.getChannelData(0);
@@ -1142,6 +1165,19 @@
       return !!(this.ctx && this.ctx.state === 'running');
     },
 
+    // 0..1 del deslizador -> ganancia (curva suave para que el oído note cada paso)
+    musicVol: 0.8,
+    musicGain() {
+      return Math.pow(this.musicVol, 1.6);
+    },
+    setMusicVolume(v) {
+      this.musicVol = clamp(v, 0, 1);
+      if (!this.ctx || !this.musicBus) return;
+      const t = this.ctx.currentTime;
+      this.musicBus.gain.cancelScheduledValues(t);
+      this.musicBus.gain.setTargetAtTime(this.musicGain(), t, 0.03);
+    },
+
     setMuted(m) {
       this.muted = m;
       if (!this.ctx) return;
@@ -1155,31 +1191,42 @@
       if (!this.ctx) return;
       const g = this.ctx.createGain();
       g.gain.value = 1;
-      g.connect(this.master);
+      g.connect(this.musicBus);
       this.runBus = g;
+      // Señales de juego (cuenta regresiva, voz de la nube): no dependen del volumen de la música
+      const fx = this.ctx.createGain();
+      fx.gain.value = 1;
+      fx.connect(this.master);
+      this.runFx = fx;
       this.runSources = [];
     },
 
     stopRun() {
       const g = this.runBus;
+      const fx = this.runFx;
       const sources = this.runSources;
       this.runBus = null;
+      this.runFx = null;
       this.runSources = [];
       if (!g || !this.ctx) return;
       const t = this.ctx.currentTime;
-      try {
-        g.gain.cancelScheduledValues(t);
-        g.gain.setValueAtTime(g.gain.value, t);
-        g.gain.linearRampToValueAtTime(0, t + 0.04);
-      } catch (e) { /* ignorar */ }
+      [g, fx].forEach((n) => {
+        if (!n) return;
+        try {
+          n.gain.cancelScheduledValues(t);
+          n.gain.setValueAtTime(n.gain.value, t);
+          n.gain.linearRampToValueAtTime(0, t + 0.04);
+        } catch (e) { /* ignorar */ }
+      });
       setTimeout(() => {
         sources.forEach((s) => { try { s.stop(); } catch (e) { /* ya detenido */ } });
         try { g.disconnect(); } catch (e) { /* ignorar */ }
+        try { if (fx) fx.disconnect(); } catch (e) { /* ignorar */ }
       }, 80);
     },
 
     _track(src, dest) {
-      if (dest && dest === this.runBus) {
+      if (dest && (dest === this.runBus || dest === this.runFx)) {
         this.runSources.push(src);
         if (this.runSources.length > 600) this.runSources.splice(0, 200);
       }
@@ -1390,6 +1437,56 @@
       this.wood(t, this.sfx, 1318.5, 0.18);
       this.wood(t + 0.06, this.sfx, 1760, 0.16);
     },
+    // Pájaro: dos silbidos rápidos hacia arriba
+    chirp(t, dest, f) {
+      const c = this.ctx;
+      [0, 0.09].forEach((d, i) => {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f * (i ? 1.12 : 1), t + d);
+        o.frequency.exponentialRampToValueAtTime(f * (i ? 1.45 : 1.3), t + d + 0.06);
+        this._env(g, t + d, 0.035, 0.005, 0.07);
+        o.connect(g);
+        g.connect(dest);
+        this._play(o, t + d, t + d + 0.1, dest);
+      });
+    },
+
+    // Sonidos de los botones: go (avanzar), back (regresar), tap (normal), off (bloqueado)
+    ui(kind) {
+      if (!this.isRunning()) return;
+      const c = this.ctx;
+      const t = c.currentTime + 0.005;
+      const note = (at, f, f2, dur, wave, vol, cut) => {
+        const o = c.createOscillator();
+        const fl = c.createBiquadFilter();
+        const g = c.createGain();
+        o.type = wave;
+        o.frequency.setValueAtTime(f, at);
+        if (f2) o.frequency.exponentialRampToValueAtTime(f2, at + dur * 0.6);
+        fl.type = 'lowpass';
+        fl.frequency.value = cut;
+        this._env(g, at, vol, 0.003, dur);
+        o.connect(fl);
+        fl.connect(g);
+        g.connect(this.sfx);
+        o.start(at);
+        o.stop(at + dur + 0.05);
+      };
+      if (kind === 'go') {
+        note(t, 659.25, 0, 0.09, 'square', 0.07, 3200);
+        note(t + 0.07, 987.77, 0, 0.16, 'square', 0.07, 3600);
+      } else if (kind === 'back') {
+        note(t, 783.99, 0, 0.08, 'triangle', 0.14, 2600);
+        note(t + 0.06, 523.25, 0, 0.13, 'triangle', 0.13, 2200);
+      } else if (kind === 'off') {
+        note(t, 196, 150, 0.14, 'square', 0.08, 700);
+      } else {
+        note(t, 880, 1320, 0.07, 'triangle', 0.14, 4000);
+      }
+    },
+
     // Baja la música de la partida (al perder)
     fadeRun(dur) {
       const g = this.runBus;
@@ -1552,7 +1649,7 @@
       const bus = A.runBus;
       if (!bus) return;
       for (let i = 0; i < 4; i++) {
-        A.wood(t0 + i * song.cdBeat, bus, i === 3 ? 1568 : 1046.5, i === 3 ? 0.55 : 0.4);
+        A.wood(t0 + i * song.cdBeat, A.runFx || bus, i === 3 ? 1568 : 1046.5, i === 3 ? 0.55 : 0.4);
       }
     },
 
@@ -1571,9 +1668,9 @@
       this.song = null;
     },
 
-    scheduleBar(bar, t) {
+    scheduleBar(bar, t, out) {
       const A = AudioEngine;
-      const bus = A.runBus;
+      const bus = out || A.runBus;
       if (!bus) return;
       const beat = bar.beat;
       const mus = bar.mus;
@@ -1623,7 +1720,7 @@
       if (I >= 3 && mus.pad) A.pad(t, bus, chord.tones, 4 * beat);
       if (bar.cues) {
         const mel = [2, 2.38, 3, 2.38, 2, 3, 2.38, 2];
-        bar.cues.forEach((pos, i) => A.cue(t + pos * beat, bus, chord.root * mel[i % mel.length]));
+        bar.cues.forEach((pos, i) => A.cue(t + pos * beat, A.runFx || bus, chord.root * mel[i % mel.length]));
       }
       if (bar.fill) {
         A.clap(t + 3.5 * beat, bus, 0.5);
@@ -1631,6 +1728,296 @@
       }
     }
   };
+
+  /* ---------------- Música de los menús ----------------
+     Pieza lo-fi propia (92 BPM, Fa7 - Mim7 - Rem7 - Do7), distinta a la de los
+     niveles. Suena en inicio, mapa, opciones y tutorial; se desvanece al jugar. */
+  const MENU_SCREENS = { title: 1, map: 1, options: 1, tuto: 1 };
+  const MENU_BPM = 92;
+  const MENU_BEAT = 60 / MENU_BPM;
+  const MENU_CHORDS = [
+    { root: 87.31, tones: [174.61, 220.00, 261.63, 329.63] },  // Fa maj7
+    { root: 82.41, tones: [164.81, 196.00, 246.94, 293.66] },  // Mi m7
+    { root: 73.42, tones: [146.83, 174.61, 220.00, 261.63] },  // Re m7
+    { root: 65.41, tones: [130.81, 164.81, 196.00, 246.94] }   // Do maj7
+  ];
+  // Melodía de 8 compases: [posición en pulsos, frecuencia, duración en pulsos]
+  const N = { G4: 392, A4: 440, C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880, C6: 1046.5 };
+  const MENU_MELODY = [
+    [[0, N.A5, 1], [1.5, N.G5, 0.5], [2, N.E5, 1], [3, N.C5, 1]],
+    [[0.5, N.D5, 0.5], [1, N.E5, 0.5], [1.5, N.G5, 2]],
+    [[0, N.A5, 0.5], [0.5, N.G5, 0.5], [1, N.E5, 1], [2, N.D5, 1.5]],
+    [[0, N.E5, 1], [1, N.C5, 0.5], [2, N.G4, 2]],
+    [[0, N.C6, 0.5], [0.5, N.A5, 0.5], [1, N.G5, 1], [2, N.A5, 1.5]],
+    [[0, N.G5, 1], [1, N.E5, 0.5], [1.5, N.D5, 1], [2.5, N.E5, 1]],
+    [[0, N.D5, 0.5], [0.5, N.E5, 0.5], [1, N.G5, 1], [2, N.A5, 1], [3, N.G5, 1]],
+    [[0, N.E5, 2], [2, N.D5, 0.5], [2.5, N.C5, 1.5]]
+  ];
+
+  /* Temas del mapa de cada mundo: mismo tempo que el menú (92 BPM) para que el
+     cambio caiga en el compás y se sienta natural, pero con instrumentos y ritmo
+     de su ambiente. Melodía: [pulso, índice del acorde, octava, duración]. */
+  const MAP_THEMES = {
+    1: { // Arcade: chiptune, ondas cuadradas y "monedas"
+      gain: 0.59, chords: CH.am, melWave: 'square', melVol: 0.032,
+      mus: { grid: 16, kick: 'X.......x.x.....', clap: '....o.......o...', hat: 'x.x.x.x.x.x.x.x.', open: '',
+        bass: 'R...R.O.R...R.O.', bassWave: 'square', arp: '0.1.2.1.0.1.2.1.', leadWave: 'square', arpOct: 2, leadVol: 0.018, pad: false },
+      melody: [
+        [[0, 2, 4, 0.5], [0.5, 1, 4, 0.5], [1, 0, 4, 1], [2.5, 1, 4, 0.5], [3, 2, 4, 1]],
+        [[0, 1, 4, 1], [1.5, 2, 4, 0.5], [2, 0, 8, 1.5]],
+        [[0, 0, 4, 0.5], [0.5, 1, 4, 0.5], [1, 2, 4, 0.5], [1.5, 0, 8, 1], [3, 2, 4, 1]],
+        [[0, 1, 4, 2], [2.5, 0, 4, 0.5], [3, 1, 4, 1]]
+      ],
+      extras(n, t, bus, b) { // moneda cada 4 compases
+        if (n % 4 === 3) {
+          AudioEngine.lead(t + 3.5 * b, bus, 987.77, 0.07, 'square', 0.04);
+          AudioEngine.lead(t + 3.5 * b + 0.07, bus, 1318.5, 0.22, 'square', 0.04);
+        }
+      }
+    },
+    2: { // Bosque: marimba en 3-3-2, maracas y pájaros
+      calm: true, gain: 0.6, chords: CH.c, melWave: 'wood', melVol: 0.16,
+      mus: { grid: 16, kick: 'X.....x.....x...', clap: '........o.......', hat: '.o.o.o.o.o.o.o.o', open: '',
+        bass: 'R.....R.....O...', bassWave: 'triangle', arp: '0..2..1.0..2..1.', leadWave: 'sine', arpOct: 2, leadVol: 0.06, pad: false },
+      melody: [
+        [[0, 2, 4, 0.5], [0.75, 1, 4, 0.5], [1.5, 0, 4, 1], [3, 1, 4, 1]],
+        [[0, 0, 4, 0.5], [0.75, 1, 4, 0.5], [1.5, 2, 4, 1.5]],
+        [[0, 2, 4, 0.5], [0.75, 0, 8, 0.5], [1.5, 2, 4, 1], [3, 1, 4, 0.5]],
+        [[0, 1, 4, 1.5], [1.5, 0, 4, 0.5], [2, 2, 2, 2]]
+      ],
+      extras(n, t, bus, b) {
+        const A = AudioEngine;
+        A.chirp(t + (0.6 + Math.random() * 1.2) * b, bus, 2400 + Math.random() * 500);
+        if (n % 2) A.chirp(t + (2.4 + Math.random()) * b, bus, 2900 + Math.random() * 400);
+      }
+    },
+    3: { // Órbita: espacio amplio, colchones largos, campanas y radar
+      calm: true, gain: 0.62, chords: CH.dm, melWave: 'bell', melVol: 0.07,
+      mus: { grid: 16, kick: 'X.........x.....', clap: '........o.......', hat: '..o.......o.....', open: '',
+        bass: 'R.......F.......', bassWave: 'triangle', arp: '0...1...2...1...', leadWave: 'sine', arpOct: 2, leadVol: 0.045, pad: true },
+      melody: [
+        [[0, 2, 4, 2], [2.5, 1, 4, 1.5]],
+        [[0, 0, 4, 1], [1, 1, 4, 1], [2, 2, 4, 2]],
+        [[0.5, 0, 8, 1.5], [2, 2, 4, 2]],
+        [[0, 1, 4, 3]]
+      ],
+      extras(n, t, bus, b) { // ping de radar cada 2 compases
+        if (n % 2 === 0) {
+          AudioEngine.wood(t + 3 * b, bus, 1975.5, 0.06);
+          AudioEngine.wood(t + 3.5 * b, bus, 1975.5, 0.025);
+        }
+      }
+    },
+    4: { // Neo Ciudad: synthwave en tresillos, bajos de sierra
+      gain: 0.63, chords: CH.em, melWave: 'sawtooth', melVol: 0.026,
+      mus: { grid: 12, kick: 'X.....x.....', clap: '...o.....o..', hat: 'xoxxoxxoxxox', open: '',
+        bass: 'R..R..R..O..', bassWave: 'sawtooth', arp: '012012012012', leadWave: 'sawtooth', arpOct: 2, leadVol: 0.014, pad: true },
+      melody: [
+        [[0, 2, 4, 1.5], [1.67, 1, 4, 0.33], [2, 0, 4, 2]],
+        [[0, 1, 4, 1], [1.33, 2, 4, 0.67], [2, 0, 8, 2]],
+        [[0, 0, 8, 0.67], [0.67, 2, 4, 0.67], [1.33, 1, 4, 0.67], [2, 2, 4, 2]],
+        [[0, 1, 4, 3]]
+      ],
+      extras() {}
+    },
+    5: { // Gran Final: funk de concierto con público
+      gain: 0.51, chords: CH.gm, melWave: 'square', melVol: 0.03,
+      mus: { grid: 16, kick: 'X..x..x...x.....', clap: '....x.......x...', hat: 'xxoxxxoxxxoxxxox', open: '..........x.....',
+        bass: 'R..RO.R..R.ROR.F', bassWave: 'square', arp: '....1.2.....2.1.', leadWave: 'square', arpOct: 2, leadVol: 0.026, pad: false },
+      melody: [
+        [[0, 2, 4, 0.5], [0.75, 2, 4, 0.25], [1, 1, 4, 0.5], [2, 0, 4, 1]],
+        [[0.5, 1, 4, 0.5], [1, 2, 4, 0.5], [1.5, 0, 8, 1.5]],
+        [[0, 0, 8, 0.25], [0.25, 2, 4, 0.25], [0.5, 1, 4, 0.5], [1.5, 2, 4, 0.5], [2, 0, 4, 1.5]],
+        [[0, 1, 4, 2]]
+      ],
+      extras(n, t, bus) { // el público grita cada 8 compases
+        if (n % 8 === 0) AudioEngine._noise(t, bus, 'bandpass', 1100, 0.6, 0.05, 0.6, 1.4);
+      }
+    }
+  };
+
+  const MenuMusic = {
+    bus: null,
+    theme: null,
+    timer: 0,
+    nextT: 0,
+    bar: 0,
+    fresh: true,
+
+    playing() {
+      return !!this.bus;
+    },
+
+    // Qué tema corresponde a la pantalla visible
+    themeFor(screen) {
+      if (screen === 'map') return mapMode > 0 ? mapMode : 'menu';
+      if (screen === 'tuto') return Tutorial.mode === 'first' ? 1 : 'menu';
+      return 'menu';
+    },
+
+    // Enciende, cambia de tema o apaga según la pantalla visible
+    sync(screen) {
+      if (!MENU_SCREENS[screen] || document.hidden) {
+        this.stop();
+        return;
+      }
+      const th = this.themeFor(screen);
+      if (!this.bus) this.start(th);
+      else if (th !== this.theme) this.switchTo(th);
+    },
+
+    gainFor(th) {
+      return th === 'menu' ? 0.72 : MAP_THEMES[th].gain;
+    },
+
+    start(th) {
+      const A = AudioEngine;
+      if (this.bus || !A.isRunning() || !A.musicBus) return;
+      const c = A.ctx;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, c.currentTime);
+      g.gain.linearRampToValueAtTime(this.gainFor(th), c.currentTime + 1.5);
+      g.connect(A.musicBus);
+      this.bus = g;
+      this.theme = th;
+      this.bar = 0;
+      this.fresh = true;
+      this.nextT = c.currentTime + 0.15;
+      this.pump();
+      this.timer = setInterval(() => this.pump(), 200);
+    },
+
+    // Cambio de tema en el siguiente compás: barrido + fundido cruzado
+    switchTo(th) {
+      const A = AudioEngine;
+      const c = A.ctx;
+      const now = c.currentTime;
+      const tb = Math.max(this.nextT, now + 0.3);
+      this.nextT = tb;
+      const old = this.bus;
+      try {
+        old.gain.cancelScheduledValues(now);
+        old.gain.setValueAtTime(old.gain.value, now);
+        old.gain.linearRampToValueAtTime(0.0001, tb + 1.2);
+      } catch (e) { /* ignorar */ }
+      setTimeout(() => { try { old.disconnect(); } catch (e) { /* ignorar */ } }, (tb - now + 1.4) * 1000);
+
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.setValueAtTime(0.0001, tb - 0.01);
+      g.gain.linearRampToValueAtTime(this.gainFor(th) * 0.45, tb);
+      g.gain.linearRampToValueAtTime(this.gainFor(th), tb + 2 * MENU_BEAT * 4);
+      g.connect(A.musicBus);
+      // Barrido de aire que "levanta" hacia el nuevo tema
+      A._noise(now, A.musicBus, 'highpass', 3200, 0.6, 0.05, Math.max(0.25, tb - now), 0.3);
+      this.bus = g;
+      this.theme = th;
+      this.bar = 0;
+      this.fresh = false;
+    },
+
+    stop() {
+      if (!this.bus) return;
+      clearInterval(this.timer);
+      this.timer = 0;
+      const g = this.bus;
+      this.bus = null;
+      this.theme = null;
+      const c = AudioEngine.ctx;
+      try {
+        const t = c.currentTime;
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.linearRampToValueAtTime(0.0001, t + 0.6);
+      } catch (e) { /* ignorar */ }
+      setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignorar */ } }, 700);
+    },
+
+    pump() {
+      if (!this.bus) return;
+      const c = AudioEngine.ctx;
+      // Si la pestaña estuvo pausada mucho tiempo, retomamos sin acumular compases
+      if (this.nextT < c.currentTime) this.nextT = c.currentTime + 0.05;
+      while (this.nextT < c.currentTime + 1.2) {
+        if (this.theme === 'menu') this.scheduleBar(this.bar, this.nextT, this.bus, this.fresh);
+        else this.scheduleThemeBar(MAP_THEMES[this.theme], this.bar, this.nextT, this.bus, this.fresh);
+        this.bar++;
+        this.nextT += 4 * MENU_BEAT;
+      }
+    },
+
+    scheduleThemeBar(th, n, t, bus, fresh) {
+      const A = AudioEngine;
+      const b = MENU_BEAT;
+      const chord = th.chords[n % 4];
+      const intensity = fresh && n < 1 ? 1 : 3;
+      Music.scheduleBar({ t: 0, beat: b, mus: th.mus, chord, intensity, final: false, fill: !th.calm && n % 4 === 3 }, t, bus);
+      th.melody[n % th.melody.length].forEach(([pos, idx, oct, d]) => {
+        const f = chord.tones[idx] * oct / 2;
+        const at = t + pos * b;
+        if (th.melWave === 'wood') A.wood(at, bus, f, th.melVol);
+        else if (th.melWave === 'bell') A.bell(at, bus, f, th.melVol);
+        else A.lead(at, bus, f, d * b * 0.9, th.melWave, th.melVol);
+      });
+      th.extras(n, t, bus, b);
+    },
+
+    scheduleBar(n, t, bus, fresh) {
+      const A = AudioEngine;
+      const b = MENU_BEAT;
+      const ch = MENU_CHORDS[n % 4];
+      const intro = fresh && n < 2;        // al empezar: dos compases sólo de teclado
+      const swing = (pos) => t + (pos % 1 === 0.5 ? pos + 0.08 : pos) * b;
+
+      // Colchón de acordes y "piano eléctrico"
+      A.pad(t, bus, ch.tones.slice(0, 3), 4 * b);
+      [0, 2.5].forEach((pos) => ch.tones.forEach((f, i) =>
+        A.lead(swing(pos) + i * 0.012, bus, f, b * (pos ? 1 : 1.6), 'triangle', 0.028)));
+
+      if (!intro) {
+        // Batería tranquila con swing
+        A.kick(t, bus, 0.55);
+        A.kick(swing(2.5), bus, 0.4);
+        [1, 3].forEach((pos) => A._noise(t + pos * b, bus, 'bandpass', 1800, 1.4, 0.18, 0.002, 0.09));
+        for (let k = 0; k < 8; k++) A.hat(swing(k * 0.5), bus, false, k % 2 ? 0.03 : 0.05);
+        // Bajo cálido
+        A.bass(t, bus, ch.root, b * 1.5, 'triangle');
+        A.bass(swing(2.5), bus, ch.root, b * 0.5, 'triangle');
+        A.bass(t + 3 * b, bus, ch.root * 1.5, b * 0.9, 'triangle');
+      }
+
+      // Melodía (8 compases que se repiten)
+      MENU_MELODY[n % 8].forEach(([pos, f, d]) => A.lead(swing(pos), bus, f, d * b * 0.9, 'sine', 0.07));
+
+      // Chasquidos de vinilo
+      for (let k = 0; k < 3; k++) {
+        A._noise(t + Math.random() * 4 * b, bus, 'highpass', 3000, 0.5, 0.025, 0.001, 0.012);
+      }
+    }
+  };
+
+  // Sonido al tocar cualquier botón de la interfaz
+  const BACK_IDS = { 'map-back': 1, 'opt-back': 1, 'btn-quit': 1, 'tuto-skip': 1, 'btn-story-skip': 1, 'btn-gate-skip': 1 };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('button');
+    if (!b) return;
+    let kind = 'tap';
+    if (b.classList.contains('is-locked')) kind = 'off';
+    else if (BACK_IDS[b.id]) kind = 'back';
+    else if (b.classList.contains('btn-primary')) kind = 'go';
+    AudioEngine.ui(kind);
+  }, true);
+
+  // Al primer toque o tecla se habilita el audio y empieza la música del menú
+  function onAnyGesture() {
+    if (AudioEngine.isRunning()) {
+      if (!MenuMusic.playing()) MenuMusic.sync(currentScreen);
+      return;
+    }
+    if (currentScreen === 'gate') return; // EMPEZAR ya activa el audio con la historia
+    AudioEngine.unlock().then((ok) => { if (ok) MenuMusic.sync(currentScreen); });
+  }
+  ['pointerup', 'touchend', 'keydown'].forEach((ev) => document.addEventListener(ev, onAnyGesture, true));
 
   /* =========================================================
      5. RELOJ COMPARTIDO
@@ -1690,7 +2077,9 @@
       introSeen: false,
       endingSeen: false,
       thanksSeen: false,
+      tutorialSeen: false,
       muted: false,
+      musicVol: 80,
       offsetMs: 0
     };
   }
@@ -1728,9 +2117,11 @@
         p.secretUnlocked = !!d.secretUnlocked;
         p.secretCleared = !!d.secretCleared;
         p.muted = !!d.muted;
+        if (d.musicVol !== undefined) p.musicVol = clamp(parseInt(d.musicVol, 10) || 0, 0, 100);
         p.introSeen = !!d.introSeen;
         p.endingSeen = !!d.endingSeen;
         p.thanksSeen = !!d.thanksSeen;
+        p.tutorialSeen = !!d.tutorialSeen;
         p.offsetMs = clamp(parseInt(d.offsetMs, 10) || 0, -250, 250);
         if (d.levels && typeof d.levels === 'object') {
           LEVELS.forEach((l) => {
@@ -1785,12 +2176,54 @@
   // Si por alguna razón el secreto ya cumple la condición, lo reflejamos
   if (!progress.secretUnlocked && allMainPerfect()) progress.secretUnlocked = true;
   AudioEngine.muted = progress.muted;
+  AudioEngine.musicVol = progress.musicVol / 100;
+
+  /* ---------------- Métricas (opcional) ----------------
+     Sólo se activan cuando el juego lo sirve tu servidor local de métricas
+     (que agrega window.BEAT_RUSH_STATS). En GitHub Pages no envían nada.
+     No guardan datos personales: sólo un identificador anónimo al azar. */
+  const Stats = (() => {
+    const on = !!window.BEAT_RUSH_STATS;
+    const rid = () => Math.random().toString(36).slice(2, 10);
+    let uid = 'anon';
+    let isNew = false;
+    if (on) {
+      try {
+        uid = localStorage.getItem('beat-rush-uid') || '';
+        if (!uid) {
+          uid = rid();
+          isNew = true;
+          localStorage.setItem('beat-rush-uid', uid);
+        }
+      } catch (e) {
+        uid = rid();
+      }
+    }
+    const sid = rid();
+    function send(tipo, data) {
+      if (!on) return;
+      const body = JSON.stringify(Object.assign({ uid, sid, tipo, t: Date.now() }, data || {}));
+      try {
+        if (navigator.sendBeacon && navigator.sendBeacon('/api/e', body)) return;
+      } catch (e) { /* seguimos con fetch */ }
+      try { fetch('/api/e', { method: 'POST', body, keepalive: true }).catch(() => {}); } catch (e) { /* sin red */ }
+    }
+    if (on) {
+      let movil = false;
+      try { movil = window.matchMedia('(pointer: coarse)').matches; } catch (e) { /* ignorar */ }
+      send('visita', { movil, ancho: window.innerWidth, alto: window.innerHeight, nuevo: isNew });
+      // Señal de vida cada 30 s mientras la pestaña está visible (para medir tiempo de juego)
+      setInterval(() => { if (!document.hidden) send('ping'); }, 30000);
+    }
+    return { send };
+  })();
   Clock.userOffset = progress.offsetMs / 1000;
 
   /* =========================================================
      7. DOM Y PANTALLAS
      ========================================================= */
   const screens = {
+    tuto: $('screen-tuto'),
     gate: $('screen-gate'),
     story: $('screen-story'),
     title: $('screen-title'),
@@ -1840,6 +2273,7 @@
       el.setAttribute('aria-hidden', on ? 'false' : 'true');
     });
     if (name !== 'result') clearConfetti();
+    MenuMusic.sync(name);
   }
 
   function blurActive() {
@@ -1920,6 +2354,7 @@
   }
 
   function renderMap() {
+    MenuMusic.sync(currentScreen);
     Array.from(mapTrack.querySelectorAll('.map-node')).forEach((n) => n.remove());
     const current = currentLevelId();
     let side = 0;
@@ -2192,7 +2627,10 @@
   const VEHICLE_ICON = { car: '🚗', rocket: '🚀', boat: '⛵', plane: '✈️' };
 
   function filmList() {
-    const list = [{ kind: 'intro', name: 'Historia', note: 'La introducción del juego.', ok: true }];
+    const list = [
+      { kind: 'tutorial', name: '🎓 Tutorial', note: 'Aprende a jugar otra vez.', ok: true },
+      { kind: 'intro', name: 'Historia', note: 'La introducción del juego.', ok: true }
+    ];
     [1, 2, 3, 4].forEach((w) => {
       list.push({
         kind: 'world' + w,
@@ -2207,8 +2645,24 @@
     return list;
   }
 
+  function renderMusicVol() {
+    const r = $('opt-music');
+    const v = $('opt-music-val');
+    if (r) r.value = String(progress.musicVol);
+    if (v) v.textContent = progress.musicVol === 0 ? 'Sin música' : progress.musicVol + '%';
+  }
+
+  function setMusicVol(v) {
+    progress.musicVol = clamp(Math.round(v / 5) * 5, 0, 100);
+    AudioEngine.setMusicVolume(progress.musicVol / 100);
+    Store.save(progress);
+    renderMusicVol();
+  }
+
   function renderOptions() {
-    $('opt-films').innerHTML = filmList().map((f) => `
+    renderMusicVol();
+    const films = $('opt-films');
+    if (films) films.innerHTML = filmList().map((f) => `
       <div class="film-row${f.ok ? '' : ' is-locked'}">
         <div><b>${f.name}</b><span>${f.ok ? f.note : '🔒 ' + f.lock}</span></div>
         <button class="btn-secondary btn-small" type="button" data-film="${f.kind}" ${f.ok ? '' : 'disabled'} aria-label="Ver ${f.name}">${f.ok ? 'VER' : '🔒'}</button>
@@ -2223,6 +2677,10 @@
     optReset.textContent = 'Borrar progreso';
   }
 
+  on('opt-music', 'input', (e) => setMusicVol(+e.target.value));
+  on('music-minus', 'click', () => setMusicVol(progress.musicVol - 10));
+  on('music-plus', 'click', () => setMusicVol(progress.musicVol + 10));
+
   function setOffset(ms) {
     progress.offsetMs = clamp(Math.round(ms / 5) * 5, -250, 250);
     Clock.userOffset = progress.offsetMs / 1000;
@@ -2231,9 +2689,9 @@
   }
 
   syncRange.addEventListener('input', () => setOffset(+syncRange.value));
-  $('sync-minus').addEventListener('click', () => setOffset(progress.offsetMs - 10));
-  $('sync-plus').addEventListener('click', () => setOffset(progress.offsetMs + 10));
-  $('sync-reset').addEventListener('click', () => setOffset(0));
+  on('sync-minus', 'click', () => setOffset(progress.offsetMs - 10));
+  on('sync-plus', 'click', () => setOffset(progress.offsetMs + 10));
+  on('sync-reset', 'click', () => setOffset(0));
   optSound.addEventListener('click', () => toggleMute());
   optReset.addEventListener('click', () => {
     if (!optReset.classList.contains('is-armed')) {
@@ -2247,7 +2705,7 @@
       return;
     }
     clearTimeout(resetArmedTimer);
-    const keep = { muted: progress.muted, offsetMs: progress.offsetMs, introSeen: progress.introSeen };
+    const keep = { muted: progress.muted, musicVol: progress.musicVol, offsetMs: progress.offsetMs, introSeen: progress.introSeen, tutorialSeen: progress.tutorialSeen };
     progress = Object.assign(defaultProgress(), keep);
     Store.save(progress);
     renderOptions();
@@ -3000,6 +3458,7 @@
       if (kind && kind.indexOf('world') === 0 && !FILMS[kind]) FILMS[kind] = worldFilm(+kind.slice(5));
       this.film = FILMS[kind] || FILMS.intro;
       this.returnTo = returnTo || null;
+      this.kind = kind || 'intro';
       this.el.innerHTML = this.film.build();
       this.el.querySelector('.st-play').addEventListener('click', () => this.finish());
       this.el.className = 'story ' + (this.film.cls || 'film-' + (kind || 'intro'));
@@ -3091,6 +3550,7 @@
     // Termina (o se salta) la cinemática
     finish() {
       if (currentScreen !== 'story') return;
+      Stats.send('cinematica', { film: this.kind, completa: this.done, repeticion: this.returnTo === 'options' });
       this.token++;
       this.stop();
       const film = this.film;
@@ -3110,6 +3570,109 @@
     renderTitle();
     showScreen('title');
   }
+
+  /* ---------------- Tutorial ----------------
+     Aparece la primera vez que se entra al nivel 1-1. Se puede saltar
+     en cualquier momento y volver a ver desde Opciones. */
+  const tutoHint = $('tuto-hint');
+
+  const Tutorial = {
+    mode: 'first',
+    step: 0,
+    practice: null,
+
+    start(mode) {
+      this.mode = mode || 'first';
+      this.step = 0;
+      this.practice = null;
+      this.render();
+      blurActive();
+      showScreen('tuto');
+    },
+
+    render() {
+      const num = { 0: 1, 1: 2, 3: 3, 4: 4 }[this.step];
+      $('tuto-step').textContent = `Paso ${num} de 4`;
+      const vis = $('tuto-visual');
+      const title = $('tuto-title');
+      const text = $('tuto-text');
+      const btn = $('tuto-next');
+      vis.className = 'tuto-visual tv-' + this.step;
+      if (this.step === 0) {
+        vis.innerHTML = `<div class="buddy tuto-pum is-victory">${characterSVG('pum')}</div>`;
+        title.textContent = '¡HOLA, SOY PUM!';
+        text.innerHTML = '<p>Te enseño a jugar en menos de un minuto.</p>';
+        btn.textContent = '¡EMPECEMOS!';
+      } else if (this.step === 1) {
+        vis.innerHTML = `<div class="td-lane"></div><div class="td-note"></div><div class="td-ring"></div>
+          <div class="td-pad">TAP</div><div class="td-hand">👆</div><div class="td-perfect">PERFECT!</div>`;
+        title.textContent = 'TOCA AL RITMO';
+        text.innerHTML = '<p>Las bolitas bajan hacia el aro. <b>Justo cuando una llegue, toca la pantalla</b> en cualquier parte.</p><p class="tuto-small">En computadora también puedes usar la barra espaciadora.</p>';
+        btn.textContent = '¡PROBAR!';
+      } else if (this.step === 3) {
+        let badge = '';
+        if (this.practice !== null) {
+          badge = this.practice >= PASS_PRECISION
+            ? `<div class="tuto-badge is-good">¡Muy bien! Tu precisión: ${this.practice}%</div>`
+            : `<div class="tuto-badge">¡Buen intento! Tu precisión: ${this.practice}%</div>`;
+        }
+        vis.innerHTML = `${badge}<div class="tuto-judges">
+            <span class="tj tj-perfect">PERFECT!</span><span class="tj tj-good">GOOD!</span><span class="tj tj-miss">MISS!</span></div>`;
+        title.textContent = 'PERFECT, GOOD Y MISS';
+        text.innerHTML = `<ul class="tuto-list">
+            <li><b class="c-perfect">PERFECT:</b> justo a tiempo.</li>
+            <li><b class="c-good">GOOD:</b> un poquito antes o después.</li>
+            <li><b class="c-miss">MISS:</b> muy lejos o sin tocar.</li></ul>
+          <p>Necesitas al menos <b>${PASS_PRECISION}% de precisión</b> para superar un nivel. Con más precisión ganas mejor letra (S, A, B, C, D) y más estrellas.</p>`;
+        btn.textContent = 'SIGUIENTE';
+      } else {
+        vis.innerHTML = `<div class="tuto-colors">
+            <span><i class="dot dot--beat"></i>Pulso</span><span><i class="dot dot--half"></i>Entre pulsos</span>
+            <span><i class="dot dot--third"></i>Tresillo</span><span><i class="dot dot--quarter"></i>Rapidísimo</span></div>
+          <div class="tuto-boss">${bossCloudSVG()}</div>`;
+        title.textContent = 'ÚLTIMOS CONSEJOS';
+        text.innerHTML = '<p>El <b>color de la bolita</b> te dice qué tipo de golpe viene.</p><p>Y al final de cada mundo te espera un jefe: <b>escucha el ritmo de la nube y repítelo</b> cuando la pantalla se oscurezca.</p>';
+        btn.textContent = this.mode === 'options' ? 'LISTO' : '¡A JUGAR!';
+      }
+    },
+
+    next() {
+      if (this.step === 0) {
+        this.step = 1;
+        this.render();
+      } else if (this.step === 1) {
+        this.step = 2;
+        startLevel('T');
+      } else if (this.step === 3) {
+        this.step = 4;
+        this.render();
+      } else if (this.step === 4) {
+        this.finish(true);
+      }
+    },
+
+    afterPractice(acc) {
+      this.practice = acc;
+      this.step = 3;
+      this.render();
+      showScreen('tuto');
+    },
+
+    finish(complete) {
+      progress.tutorialSeen = true;
+      Store.save(progress);
+      Stats.send('cinematica', { film: 'tutorial', completa: !!complete, repeticion: this.mode === 'options' });
+      if (this.mode === 'options') {
+        renderOptions();
+        showScreen('options');
+      } else {
+        startLevel('1-1', true);
+      }
+    }
+  };
+
+  on('tuto-next', 'click', () => Tutorial.next());
+  on('tuto-skip', 'click', () => Tutorial.finish(false));
 
   /* =========================================================
      8. JUEGO
@@ -3766,6 +4329,12 @@
       state.finShown = true;
       const passed = accuracy() >= PASS_PRECISION;
       buddyGame.classList.remove('is-perfect', 'is-good', 'is-miss');
+      if (state.level.tutorial) {
+        flashCallout(passed ? '¡MUY BIEN!' : '¡BUEN INTENTO!', 'end');
+        buddyGame.classList.add('is-victory');
+        AudioEngine.fanfare(false);
+        return;
+      }
       if (passed) {
         if (state.level.secret || state.level.boss) setWorldColor(sceneEl, 1, true);
         else setWorldColor(sceneEl, state.level.idx / 4);
@@ -3804,6 +4373,11 @@
 
     updateTimeline(s);
     updateBoss(s, dt);
+    if (state.level.tutorial) {
+      // La mano baja justo cuando una bolita llega al aro
+      const n = state.notes[state.cursor];
+      tutoHint.classList.toggle('is-tap', !!n && Math.abs(n.t - s) < 0.13);
+    }
     processLate(s);
     buddyBob(s);
     render(s, nowMs, dt);
@@ -3879,6 +4453,8 @@
     buddyGame.innerHTML = characterSVG(level.char);
     buddyBody = buddyGame.querySelector('.b-body');
     hudLevel.textContent = level.hud;
+    tutoHint.hidden = !level.tutorial;
+    tutoHint.classList.remove('is-tap');
     stage.classList.toggle('is-boss', !!level.boss);
     bossEl.hidden = !level.boss;
     if (level.boss) {
@@ -3889,15 +4465,21 @@
     document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1A0F33');
   }
 
-  async function startLevel(id) {
+  async function startLevel(id, skipTutorial) {
     const level = levelById(id);
     if (!level || !isUnlocked(level)) return;
+    if (id === '1-1' && !skipTutorial && !progress.tutorialSeen && !rec(level).plays) {
+      Tutorial.start('first');
+      return;
+    }
     if (state.phase === 'starting') return;
     blurActive();
+    if (state.phase === 'playing') Stats.send('nivel_abandonado', { nivel: state.level.id });
     const token = ++state.runToken;
     stopRun();
     state.phase = 'starting';
     state.level = level;
+    Stats.send('nivel_inicio', { nivel: level.id });
     state.song = buildSong(level);
     resetRun();
     prepareLevelVisuals(level);
@@ -3922,6 +4504,14 @@
   }
 
   function leaveToMap() {
+    if (state.level && state.level.tutorial) {
+      state.runToken++;
+      stopRun();
+      state.phase = 'idle';
+      Tutorial.afterPractice(null);
+      return;
+    }
+    if (state.phase === 'playing' || state.phase === 'starting') Stats.send('nivel_abandonado', { nivel: state.level.id });
     state.runToken++;
     stopRun();
     state.phase = 'idle';
@@ -3970,6 +4560,11 @@
     state.rafId = 0;
     clearTimers();
     resetBuddy();
+    if (state.level.tutorial) {
+      state.phase = 'idle';
+      Tutorial.afterPractice(accuracy());
+      return;
+    }
 
     const level = state.level;
     const res = {
@@ -3980,6 +4575,10 @@
     };
     const outcome = recordResult(level, res);
     const rating = outcome.passed ? ratingFor(res.acc) : 'F';
+    Stats.send('nivel_fin', {
+      nivel: level.id, superado: outcome.passed, precision: res.acc, nota: res.score,
+      combo: res.combo, letra: rating, jefe: !!level.boss, secretoNuevo: outcome.secretNew
+    });
     const stars = outcome.passed ? accToStars(res.acc) : 0;
 
     const world = level.secret ? null : WORLDS[level.world - 1];
@@ -4175,6 +4774,15 @@
       if (e.key === 'Escape') Story.finish();
       return;
     }
+    if (currentScreen === 'tuto') {
+      if (isSpace && !onButton) {
+        e.preventDefault();
+        if (!e.repeat) Tutorial.next();
+      } else if (e.key === 'Escape') {
+        Tutorial.finish(false);
+      }
+      return;
+    }
     if (currentScreen === 'gate') {
       if (isSpace && !onButton) {
         e.preventDefault();
@@ -4218,27 +4826,27 @@
     if ((e.key === 'm' || e.key === 'M') && !e.repeat && !(e.target && e.target.tagName === 'INPUT')) toggleMute();
   });
 
-  $('btn-map').addEventListener('click', () => openMap());
-  $('btn-gate-start').addEventListener('click', () => Story.play());
-  $('btn-gate-skip').addEventListener('click', () => skipGate());
-  $('btn-title-story').addEventListener('click', () => Story.play());
-  $('opt-films').addEventListener('click', (e) => {
+  on('btn-map', 'click', () => openMap());
+  on('btn-gate-start', 'click', () => Story.play());
+  on('btn-gate-skip', 'click', () => skipGate());
+  on('opt-films', 'click', (e) => {
     const b = e.target.closest('button[data-film]');
     if (!b || b.disabled) return;
-    Story.play(b.dataset.film, 'options');
+    if (b.dataset.film === 'tutorial') Tutorial.start('options');
+    else Story.play(b.dataset.film, 'options');
   });
-  $('btn-story-skip').addEventListener('click', () => Story.finish());
-  $('btn-options').addEventListener('click', () => { renderOptions(); showScreen('options'); });
-  $('map-back').addEventListener('click', () => mapBack());
-  $('opt-back').addEventListener('click', () => { renderTitle(); showScreen('title'); });
-  $('btn-quit').addEventListener('click', () => leaveToMap());
-  $('btn-restart').addEventListener('click', () => startLevel(state.level.id));
-  $('btn-next').addEventListener('click', () => {
+  on('btn-story-skip', 'click', () => Story.finish());
+  on('btn-options', 'click', () => { renderOptions(); showScreen('options'); });
+  on('map-back', 'click', () => mapBack());
+  on('opt-back', 'click', () => { renderTitle(); showScreen('title'); });
+  on('btn-quit', 'click', () => leaveToMap());
+  on('btn-restart', 'click', () => startLevel(state.level.id));
+  on('btn-next', 'click', () => {
     if (performance.now() - state.resultsAt < 250) return;
     if (state.primaryAction) state.primaryAction();
   });
-  $('btn-retry').addEventListener('click', () => startLevel(state.level.id));
-  $('btn-tomap').addEventListener('click', () => { state.phase = 'idle'; openMap(state.level.id); });
+  on('btn-retry', 'click', () => startLevel(state.level.id));
+  on('btn-tomap', 'click', () => { state.phase = 'idle'; openMap(state.level.id); });
   soundButtons.forEach((b) => b.addEventListener('click', () => {
     toggleMute();
     b.blur();
@@ -4246,6 +4854,7 @@
 
   // Si el jugador cambia de app o pestaña, la partida se cancela limpiamente
   document.addEventListener('visibilitychange', () => {
+    MenuMusic.sync(currentScreen);
     if (document.hidden && currentScreen === 'story') Story.finish();
     if (document.hidden && (state.phase === 'playing' || state.phase === 'starting')) leaveToMap();
   });

@@ -38,6 +38,20 @@
       <button id="btn-story-skip" class="story-skip" type="button">Saltar ⏭</button>
     </section>
 
+    <!-- ================= TUTORIAL ================= -->
+    <section id="screen-tuto" class="screen screen--tuto" aria-labelledby="tuto-title">
+      <div class="tuto-top">
+        <span id="tuto-step" class="tuto-step">Paso 1 de 4</span>
+        <button id="tuto-skip" class="btn-link" type="button">Saltar tutorial ⏭</button>
+      </div>
+      <div class="tuto-body">
+        <div id="tuto-visual" class="tuto-visual" aria-hidden="true"></div>
+        <h2 id="tuto-title" class="tuto-title"></h2>
+        <div id="tuto-text" class="tuto-text"></div>
+        <button id="tuto-next" class="btn-primary" type="button">SIGUIENTE</button>
+      </div>
+    </section>
+
     <!-- ================= PANTALLA PRINCIPAL ================= -->
     <section id="screen-title" class="screen screen--title" aria-labelledby="logo">
       <div class="corner">
@@ -56,7 +70,6 @@
           <button id="btn-options" class="btn-secondary" type="button">OPCIONES</button>
         </div>
         <p class="hint">Toca la pantalla al ritmo. En computadora, usa la barra espaciadora.</p>
-        <button id="btn-title-story" class="btn-link" type="button">Ver la historia</button>
       </div>
     </section>
 
@@ -95,6 +108,17 @@
             <p>Música y efectos del juego.</p>
           </div>
           <button id="opt-sound" class="switch" type="button" role="switch" aria-checked="true" aria-label="Sonido"><span></span></button>
+        </div>
+
+        <div class="opt-group">
+          <h3>Volumen de la música</h3>
+          <p>Música de los menús, los niveles y las cinemáticas. Los sonidos de tus golpes y la voz de la nube se escuchan aunque la bajes.</p>
+          <div class="sync">
+            <button id="music-minus" class="icon-btn icon-btn--text" type="button" aria-label="Bajar volumen de la música">−</button>
+            <input id="opt-music" type="range" min="0" max="100" step="5" value="80" aria-label="Volumen de la música">
+            <button id="music-plus" class="icon-btn icon-btn--text" type="button" aria-label="Subir volumen de la música">+</button>
+          </div>
+          <div class="sync-foot"><output id="opt-music-val" for="opt-music">80%</output></div>
         </div>
 
         <div class="opt-group">
@@ -184,6 +208,7 @@
         </div>
         <div id="buddy-game" class="buddy buddy--game" aria-hidden="true"></div>
         <div id="tag" class="tag" aria-hidden="true"></div>
+        <div id="tuto-hint" class="tuto-hint" aria-hidden="true" hidden><span class="tuto-hand">👆</span><span class="tuto-hint-text">¡Toca cuando llegue al aro!</span></div>
         <div id="callout" class="callout" aria-live="polite">
           <span class="c-main"></span>
           <span class="c-sub"></span>
