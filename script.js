@@ -216,6 +216,13 @@
     { root: 98.00, tones: [196.00, 246.94, 293.66] }
   ];
   // Progresión oscura del Gran Silencio (Cm - Ab - Fm - G)
+  // Japón: acordes abiertos de quinta/cuarta sobre la escala In (Mi - Fa - La - Si - Do)
+  CH.jp = [
+    { root: 82.41, tones: [164.81, 246.94, 329.63] },
+    { root: 110.00, tones: [220.00, 329.63, 440.00] },
+    { root: 87.31, tones: [174.61, 261.63, 349.23] },
+    { root: 123.47, tones: [246.94, 329.63, 493.88] }
+  ];
   CH.cm = [
     { root: 65.41, tones: [261.63, 311.13, 392.00] },
     { root: 103.83, tones: [207.65, 261.63, 311.13] },
@@ -225,6 +232,36 @@
 
   // Grooves extra: cada mundo tiene tres (dos para niveles y uno para el jefe)
   Object.assign(MUS, {
+    jpTemple: { // templo de noche: taiko lento, shakuhachi y koto suelto
+      jp: true, grid: 16, mix: 1, drone: true, flute: true, gong: true,
+      taiko: 'X.......X.......', ka: '..x...x...x...x.', shime: '', clap: '',
+      bass: 'R...............', bassWave: 'triangle', koto: '0.......3.......'
+    },
+    jpMatsuri: { // festival: shime en tresillos, tablillas y flauta alegre
+      jp: true, grid: 12, mix: 0.95, drone: false, flute: true, fluteUp: true, gong: false,
+      taiko: 'X..x..X..x..', ka: '..x..x..x..x', shime: 'x.xx.xx.xx.x', clap: '...x.....x..',
+      bass: 'R..R..R..R..', bassWave: 'triangle', koto: ''
+    },
+    jpNeo: { // neo-Tokio: riff rápido de koto sobre bajo sintetizado
+      jp: true, grid: 12, mix: 0.95, drone: false, flute: false, gong: false, synth: true,
+      taiko: 'X.....X.....', ka: '..x..x..x..x', shime: '', clap: '...x.....x..',
+      bass: 'R..R.OR..R.O', bassWave: 'sawtooth', koto: '023532023532'
+    },
+    jpStorm: { // tormenta de tambores: shime veloz y koto brillante
+      jp: true, grid: 12, mix: 0.85, drone: false, flute: true, gong: true, gongEvery: 4, synth: true,
+      taiko: 'X..X..X..X..', ka: '', shime: 'xxxxxxxxxxxx', clap: '...x.....x..',
+      bass: 'R.RR.RR.RR.R', bassWave: 'sawtooth', koto: '5.3.2.5.3.2.', kotoBright: true
+    },
+    jpBoss: { // la sombra: odaiko, gong, zumbido y koto en tensión (Fa contra Mi)
+      jp: true, grid: 12, mix: 1, drone: true, flute: false, gong: true, gongEvery: 4,
+      taiko: 'X.....X.....', ka: '', shime: '', clap: '',
+      bass: 'R.....R.....', bassWave: 'sawtooth', koto: '0..1..0..1..'
+    },
+    jpMap: { // mapa del Mundo 4 (92 BPM)
+      jp: true, grid: 16, mix: 1, drone: true, flute: true, gong: true, gongEvery: 8, synth: true,
+      taiko: 'X.......X..x....', ka: '..x...x...x...x.', shime: '', clap: '',
+      bass: 'R.......R.......', bassWave: 'triangle', koto: '0.2.3...5.3.2...'
+    },
     chip: {
       grid: 16,
       kick: 'X.....x.X.....x.', clap: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', open: '',
@@ -278,6 +315,50 @@
       kick: 'X..x..x...x..x..', clap: '....x..o....x...', hat: 'xxoxxxoxxxoxxxox', open: '..........x.....',
       bass: 'R..RO.R..R.ROR.F', bassWave: 'square',
       arp: '0...1.2.0...2.1.', leadWave: 'square', arpOct: 2, leadVol: 0.035, pad: false
+    },
+    /* Rock del Mundo 5. 'clap' es la caja; 'gtr': X acorde abierto, x sordina, h acorde agudo.
+       'kickLite' se usa cuando la intensidad es baja. 'arp' con leadGtr = guitarra solista. */
+    rock: {
+      rock: true, grid: 16, crowd: true,
+      kick: 'X.......X.x.....', kickLite: 'X.......X.......', clap: '....X.......X...',
+      hat: 'x.x.x.x.x.x.x.x.', open: '..............x.',
+      bass: 'R.R.R.R.R.R.R.R.', bassWave: 'sawtooth',
+      gtr: 'X.....x.X...x.x.', arp: '', leadGtr: false
+    },
+    punk: {
+      rock: true, mix: 0.85, grid: 16, crowd: true,
+      kick: 'X.X...X.X.X...X.', kickLite: 'X...X...X...X...', clap: '....X.......X...',
+      hat: '', open: 'x.x.x.x.x.x.x.x.',
+      bass: 'R.R.R.R.R.R.R.R.', bassWave: 'square',
+      gtr: 'X.x.x.x.X.x.x.x.', arp: '', leadGtr: false
+    },
+    heavy: {
+      rock: true, mix: 0.9, grid: 16, crowd: true,
+      kick: 'X..X......X..X..', kickLite: 'X.........X.....', clap: '........X.......',
+      hat: 'x...x...x...x...', open: '..x.......x.....',
+      bass: 'R..R......R..R..', bassWave: 'sawtooth',
+      gtr: 'X..x......X..x..', arp: '..2.1.0.....2.1.', leadGtr: true
+    },
+    metal: {
+      rock: true, mix: 0.5, grid: 16, crowd: true,
+      kick: 'XxXxXxXxXxXxXxXx', kickLite: 'X...X...X...X...', clap: '....X.......X...',
+      hat: 'x...x...x...x...', open: '',
+      bass: 'R.RRR.RRR.RRR.RR', bassWave: 'sawtooth',
+      gtr: 'X.xxx.xxx.xxx.xx', arp: '', leadGtr: false
+    },
+    metalboss: {
+      rock: true, grid: 16, crowd: false,
+      kick: 'X.X.X.X.X.X.X.X.', kickLite: 'X.......X.......', clap: '....X.......X..X',
+      hat: 'x.x.x.x.x.x.x.x.', open: '',
+      bass: 'R.R.R.R.R.R.R.R.', bassWave: 'sawtooth',
+      gtr: 'Xxxxxxxxhxxxxxxx', arp: '0.......2.......', leadGtr: true
+    },
+    rockmap: {
+      rock: true, grid: 16, crowd: false,
+      kick: 'X.....X.X.......', kickLite: 'X.......X.......', clap: '....X.......X...',
+      hat: 'x.x.x.x.x.x.x.x.', open: '',
+      bass: 'R.....R.R.......', bassWave: 'sawtooth',
+      gtr: 'X.......X.....x.', arp: '', leadGtr: false
     },
     finalboss: {
       grid: 16,
@@ -359,7 +440,7 @@
       name: 'Neo Ciudad', short: 'Neo', scene: 'future',
       char: 'kage', charName: 'Kage, el ninja', color: '#FF7EDB', accent: '255, 126, 219', hitWave: 'triangle',
       orb: 'Ritmo de Neón',
-      lore: 'La ciudad de neón cambió su pulso por tresillos secretos. Kage, el ninja, los esconde entre las sombras... y la nube también.',
+      lore: 'En Neo Ciudad los templos japoneses conviven con el neón. Kage, el ninja, guarda el pulso de los tambores taiko... pero la nube los escondió entre las sombras.',
       bossName: 'Sombra Neón',
       bossIntro: '«Tus tresillos se pierden en mis sombras.»',
       win: 'Los letreros vuelven a parpadear a tiempo. ¡Recuperaste el Ritmo de Neón!',
@@ -370,11 +451,30 @@
         m: [0, 2 * T, 4 * T, 2, 7 * T, 8 * T, 10 * T], n: [0, 4 * T, 8 * T], o: [0, 4 * T, 8 * T, 3], p: [2, 7 * T, 8 * T, 3]
       },
       levels: [
-        { name: 'Sigilo', hint: 'Bolitas azules: tresillos', bpm: 110, mus: 'neo', chords: CH.em, bars: 'abac dbag ecba dg' },
-        { name: 'Tresillos', hint: 'Tres golpes en un pulso', bpm: 116, mus: 'synth', chords: CH.amAlt, bars: 'bdec fnbg eicd fn' },
-        { name: 'Neón', hint: 'Ráfagas ninja', bpm: 120, mus: 'neo', chords: CH.f, bars: 'ehjk ngid fjko gh' },
-        { name: 'Sombras Veloces', hint: 'Tresillos muy rápidos', bpm: 126, mus: 'synth', chords: tr(CH.em, 3), bars: 'hlmk pjlo mhkl pm' },
-        { name: 'Sombra Neón', hint: '', bpm: 126, mus: 'neoboss', chords: tr(CH.cm, 4), bars: 'abek BN hjlm EO lmhk' }
+        { name: 'Sigilo', hint: 'Sigue al taiko: don... don', bpm: 110, mus: 'jpTemple', chords: CH.jp,
+          // templo: golpes de taiko en el pulso y "don-ko" sencillos
+          P: { a: [0, 2], b: [0, 1, 2, 3], c: [0, 1, 2], d: [0, 2, 2.5], e: [0, 1, 2, 2.5, 3], f: [0, 0.5, 2], g: [1, 3], h: [0, 0.5, 1, 2, 3] },
+          bars: 'abcb dbea fbdh egfh' },
+        { name: 'Tresillos', hint: 'Festival: don-ko-don en tresillos', bpm: 116, mus: 'jpMatsuri', chords: tr(CH.jp, -2),
+          // matsuri: el "don-ko" del festival en tresillos
+          P: { a: [0, 1, 2, 3], b: [0, 2 * T, 1, 2, 3], c: [0, 1, 1 + 2 * T, 2, 3], d: [0, 2 * T, 2, 2 + 2 * T], e: [0, 1, 2, 2 + 2 * T, 3],
+            f: [0, T, 2 * T, 1, 2, 3], g: [0, 2 * T, 1, 1 + 2 * T, 2, 3], h: [1, 3], i: [0, 2], j: [0, 2 * T, 2] },
+          bars: 'ibah cbjd fbhd egbi' },
+        { name: 'Neón', hint: 'Koto de neón', bpm: 120, mus: 'jpNeo', chords: tr(CH.jp, 5),
+          // neo-Tokio: tresillos que siguen el riff del koto
+          P: { a: [0, 1, 2, 3], b: [0, 2 * T, 4 * T, 2, 3], c: [0, 1, 5 * T, 2, 3], d: [0, T, 2 * T, 2, 3], e: [0, 2 * T, 2, 2 + 2 * T, 3],
+            f: [0, 1, 2, 2 + T, 2 + 2 * T], g: [0, 2], h: [0, T, 2 * T, 1, 2, 2 + T, 2 + 2 * T] },
+          bars: 'abcd egfb gdce afhg' },
+        { name: 'Sombras Veloces', hint: 'Doko-doko: tambores veloces', bpm: 126, mus: 'jpStorm', chords: tr(CH.jp, 3),
+          // tormenta: ráfagas "doko-doko" de taiko en tresillos
+          P: { a: [0, T, 2 * T, 1, 2, 3], b: [0, T, 2 * T, 1, 1 + T, 1 + 2 * T, 2, 3], c: [0, 1, 2, 2 + T, 2 + 2 * T, 3, 3 + T, 3 + 2 * T],
+            d: [0, 2 * T, 1, 1 + 2 * T, 2, 2 + 2 * T, 3], e: [0, 1, 2, 3], f: [0, T, 2 * T, 2, 2 + T, 2 + 2 * T], h: [1, 3] },
+          bars: 'abfd ebfe afdc dehd' },
+        { name: 'Sombra Neón', hint: '', bpm: 126, mus: 'jpBoss', chords: tr(CH.jp, -4),
+          // la sombra: odaiko pesado; la nube canta ritmos de taiko para repetir a oscuras
+          P: { a: [0, 1, 2, 3], b: [0, 2 * T, 2, 3], c: [0, 1, 2, 2 + 2 * T, 3], d: [0, T, 2 * T, 2, 3], e: [0, 2 * T, 1, 2, 2 + 2 * T, 3],
+            f: [0, T, 2 * T, 1, 2, 2 + T, 2 + 2 * T], g: [0, 2], h: [0, 1, 1 + 2 * T, 2, 3, 3 + 2 * T] },
+          bars: 'abch BD efhd EH fche' }
       ]
     },
     {
@@ -393,11 +493,28 @@
         o: [0, 0.75, 1.5, 2, 2.5, 3, 3.25, 3.5], p: [0, 1, 2, 2.5, 3, 3.25, 3.5]
       },
       levels: [
-        { name: 'Prueba de Sonido', hint: 'Bolitas amarillas: golpes rapidísimos', bpm: 118, mus: 'final', chords: CH.gm, bars: 'abac dbea bcdl ab' },
-        { name: 'Ensayo', hint: 'Ritmo funk', bpm: 124, mus: 'funk', chords: CH.f, bars: 'cdfe gbhc fjdl eg' },
-        { name: 'Encore', hint: 'Sin respiro', bpm: 128, mus: 'final', chords: CH.amAlt, bars: 'eigj kfhb mjil gk' },
-        { name: 'Clímax', hint: 'Todo junto', bpm: 134, mus: 'funk', chords: tr(CH.gm, 2), bars: 'imno kjml nopi mh' },
-        { name: 'Gran Silencio', hint: '', bpm: 138, mus: 'finalboss', chords: tr(CH.cm, -2), bars: 'bcfg DF ijkl KM mnop' }
+        { name: 'Prueba de Sonido', hint: 'Toca al ritmo de la guitarra 🎸', bpm: 118, mus: 'rock', chords: CH.gm,
+          // riff de rock: bombo 1-3, caja 2-4, guitarra en 1, 2½, 3, 4, 4½
+          P: { a: [0, 2], b: [0, 1, 2, 3], c: [0, 1.5, 2], d: [0, 1.5, 2, 3, 3.5], e: [0, 1, 2, 2.5, 3], f: [0, 1.5, 2, 3], g: [1, 3], h: [0, 1, 1.5, 2, 3, 3.5] },
+          bars: 'abcb dfeb hcdf ehdf' },
+        { name: 'Ensayo', hint: 'Punk: rasgueos rápidos', bpm: 124, mus: 'punk', chords: CH.f,
+          // punk: corcheas de guitarra, bombo saltado, caja 2-4
+          P: { a: [0, 1, 2, 3], b: [0, 0.5, 1, 2, 2.5, 3], c: [0, 0.5, 1.5, 2, 2.5, 3.5], d: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], e: [1, 3], f: [0, 0.5, 1, 1.5, 2, 3], g: [0, 1.5, 2, 3.5], h: [0, 0.5, 1, 2, 3, 3.5] },
+          bars: 'abae gbfe cbgh fcah' },
+        { name: 'Encore', hint: 'Medio tiempo: sigue al bombo y la caja', bpm: 128, mus: 'heavy', chords: CH.amAlt,
+          // rock pesado: guitarra en 1, 1¾, 3½, 4¼; caja en 3; frases de la guitarra solista
+          P: { a: [0, 2], b: [0, 0.75, 2], c: [0, 0.75, 2, 2.5, 3.25], d: [0, 0.75, 2.5, 3.25], e: [0, 0.5, 1, 1.5, 2], f: [0, 0.75, 1.5, 2, 3, 3.5], g: [2, 2.5, 3.25], h: [0, 0.75, 1, 1.5, 2, 2.5, 3.25] },
+          bars: 'bcdc ebfd hcgf chfh' },
+        { name: 'Clímax', hint: 'Galope metalero: ta-ta-ca', bpm: 134, mus: 'metal', chords: tr(CH.gm, 2),
+          // metal: galope (corchea + dos semicorcheas) y caja 2-4
+          P: { a: [0, 1, 2, 3], b: [0, 0.5, 0.75, 1, 2, 3], c: [0, 0.5, 0.75, 1, 2, 2.5, 2.75, 3], d: [0, 1, 1.5, 1.75, 2, 3, 3.5, 3.75], e: [1, 3],
+            f: [0, 0.5, 0.75, 1, 1.5, 1.75, 2, 3], g: [0, 0.5, 1, 2, 2.5, 3], h: [0, 0.5, 0.75, 1, 1.5, 1.75, 2, 2.5, 2.75, 3] },
+          bars: 'abga cbdg fcde hcfa' },
+        { name: 'Gran Silencio', hint: '', bpm: 138, mus: 'metalboss', chords: tr(CH.cm, -2),
+          // metal oscuro: bombo en corcheas, ráfagas de trémolo y caja con remate
+          P: { a: [0, 1, 2, 3], b: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], c: [0, 1, 2, 3, 3.75], d: [0, 0.5, 1, 2, 2.5, 3], e: [0, 0.25, 0.5, 1, 2, 2.25, 2.5, 3],
+            f: [0, 1, 1.5, 2, 3, 3.5], g: [0, 0.5, 1, 1.5, 2, 3, 3.75], h: [0, 0.25, 0.5, 0.75, 1, 2, 3] },
+          bars: 'adcf DF begd CG ehgb' }
       ]
     }
   ];
@@ -434,6 +551,9 @@
       else intro = [`NIVEL ${code}`, lv.hint];
       LEVELS.push({
         id: code, code, num: d + 1, secret: false, world: wi + 1, idx: li + 1, boss,
+        rockHits: !!MUS[lv.mus].rock,   // en el Mundo 5 tus golpes suenan como guitarra
+        jpHits: !!MUS[lv.mus].jp,       // en el Mundo 4, como tambores taiko
+        hitStyle: ['chip', 'marimba', 'space'][wi] || null,  // mundos 1-3: sonido de su tema
         name: boss ? `Jefe: ${w.bossName}` : lv.name,
         difficulty: DIFFICULTY[li],
         char: w.char, charName: w.charName, scene: w.scene,
@@ -442,7 +562,7 @@
         win: [+(0.09 - d * 0.0008).toFixed(4), +(0.17 - d * 0.0012).toFixed(4)],
         intro,
         hud: boss ? `${code} JEFE` : `${code} ${w.short}`,
-        sections: [{ bpm: lv.bpm, mus: MUS[lv.mus], chords: lv.chords, bars: parseBars(lv.bars, w.P) }],
+        sections: [{ bpm: lv.bpm, mus: MUS[lv.mus], chords: lv.chords, bars: parseBars(lv.bars, lv.P || w.P) }],
         tags: []
       });
     });
@@ -453,7 +573,7 @@
     name: 'Prisma Secreto', difficulty: 'Secreto',
     char: 'lumi', charName: 'Lumi, el espíritu prisma',
     scene: 'prism', color: '#FF7EDB', accent: '255, 126, 219',
-    hitWave: 'triangle', approach: 1.1, win: [0.07, 0.14],
+    hitWave: 'triangle', hitStyle: 'prism', approach: 1.1, win: [0.07, 0.14],
     intro: ['NIVEL SECRETO', 'El sexto ritmo cambia de tempo. ¡Suerte!'],
     hud: '✨ Secreto',
     finalChord: A_MAJOR,
@@ -490,7 +610,7 @@
   LEVELS.push({
     id: 'T', code: 'T', num: 0, secret: false, tutorial: true, world: 1, idx: 5, boss: false,
     name: 'Práctica', difficulty: 'Tutorial', char: 'pum', charName: 'Pum',
-    scene: 'arcade', color: '#FF4D8D', accent: '255, 77, 141', hitWave: 'square',
+    scene: 'arcade', color: '#FF4D8D', accent: '255, 77, 141', hitWave: 'square', hitStyle: 'chip',
     approach: 2.0, win: [0.12, 0.22],
     intro: ['¡PRÁCTICA!', 'Toca cuando la bolita llegue al aro'],
     hud: 'Práctica',
@@ -620,7 +740,7 @@
         }
         // Durante los desafíos del jefe la música baja para que se oiga el ritmo
         if (bar.call || bar.dark) intensity = 1;
-        bars.push({ t, beat, mus: sec.mus, chord, intensity, final: isFinal, fill: false, bpm: sec.bpm, cues: bar.cues || null, special: !!(bar.call || bar.dark) });
+        bars.push({ n: absBar - 1, hits: bar.notes, guide: level.hitStyle || null, t, beat, mus: sec.mus, chord, intensity, final: isFinal, fill: false, bpm: sec.bpm, cues: bar.cues || null, special: !!(bar.call || bar.dark) });
         for (let k = 0; k < 4; k++) lines.push({ t: t + k * beat, bar: k === 0 });
         if (bar.call) {
           tags.push({ t: t - beat, text: '👂 ¡Escucha a la nube!' });
@@ -633,7 +753,7 @@
         bar.notes.forEach((pos, k) => {
           let f = chord.tones[k % 3] * 2;
           while (f > 900) f /= 2;
-          notes.push({ t: t + pos * beat, sub: subdivision(pos), freq: f, dark: !!bar.dark });
+          notes.push({ t: t + pos * beat, sub: subdivision(pos), freq: f, root: chord.root, dark: !!bar.dark });
         });
         t += 4 * beat;
       });
@@ -1437,6 +1557,441 @@
       this.wood(t, this.sfx, 1318.5, 0.18);
       this.wood(t + 0.06, this.sfx, 1760, 0.16);
     },
+    // Curva de distorsión (se crea una sola vez)
+    distCurve() {
+      if (this._dist) return this._dist;
+      const len = 1024;
+      const curve = new Float32Array(len);
+      for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * 2 - 1;
+        curve[i] = Math.tanh(x * 6) / Math.tanh(6);
+      }
+      this._dist = curve;
+      return curve;
+    },
+
+    // Guitarra eléctrica: acorde de quinta distorsionado. mode: open | mute | high
+    guitar(t, dest, base, mode, dur, vol = 1) {
+      const c = this.ctx;
+      const root = mode === 'high' ? base * 2 : base;
+      const pre = c.createGain();
+      pre.gain.value = 0.5;
+      const sh = c.createWaveShaper();
+      sh.curve = this.distCurve();
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = mode === 'mute' ? 950 : 3300;
+      lp.Q.value = mode === 'mute' ? 2 : 0.7;
+      const body = c.createBiquadFilter();
+      body.type = 'peaking';
+      body.frequency.value = 900;
+      body.gain.value = 4;
+      const g = c.createGain();
+      const peak = (mode === 'mute' ? 0.085 : 0.075) * vol;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + 0.006);
+      if (mode === 'mute') {
+        g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.06, dur));
+      } else {
+        g.gain.setValueAtTime(peak, t + dur * 0.7);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      }
+      pre.connect(sh);
+      sh.connect(lp);
+      lp.connect(body);
+      body.connect(g);
+      g.connect(dest);
+      [[root, -7], [root, 7], [root * 1.5, 0], [root * 2, 3]].forEach(([f, det]) => {
+        const o = c.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.value = f;
+        o.detune.value = det;
+        o.connect(pre);
+        this._play(o, t, t + dur + 0.05, dest);
+      });
+    },
+
+    // Taiko: tambor grande japonés. size: big (don) | mid (ko)
+    taiko(t, dest, vel, size) {
+      const c = this.ctx;
+      const big = size !== 'mid';
+      const f0 = big ? 92 : 150;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f0 * 0.62, t + (big ? 0.3 : 0.16));
+      this._env(g, t, vel * (big ? 0.95 : 0.7), 0.003, big ? 0.55 : 0.22);
+      o.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 0.6, dest);
+      const s = c.createOscillator();
+      const sg = c.createGain();
+      s.type = 'triangle';
+      s.frequency.setValueAtTime(f0 * 1.7, t);
+      s.frequency.exponentialRampToValueAtTime(f0 * 1.1, t + 0.06);
+      this._env(sg, t, vel * 0.3, 0.001, 0.07);
+      s.connect(sg);
+      sg.connect(dest);
+      this._play(s, t, t + 0.1, dest);
+      this._noise(t, dest, 'lowpass', 450, 0.8, vel * 0.3, 0.002, 0.09);
+    },
+    // Ka: golpe en el aro de madera del taiko
+    ka(t, dest, vel) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(1900, t);
+      o.frequency.exponentialRampToValueAtTime(1600, t + 0.03);
+      this._env(g, t, vel * 0.5, 0.001, 0.035);
+      o.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 0.06, dest);
+      this._noise(t, dest, 'bandpass', 3000, 3, vel * 0.35, 0.001, 0.02);
+    },
+    // Shime-daiko: tambor pequeño y tenso
+    shime(t, dest, vel) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(390, t);
+      o.frequency.exponentialRampToValueAtTime(300, t + 0.06);
+      this._env(g, t, vel * 0.55, 0.001, 0.09);
+      o.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 0.12, dest);
+      this._noise(t, dest, 'bandpass', 2200, 1.2, vel * 0.18, 0.001, 0.03);
+    },
+    // Hyoshigi: tablillas de madera
+    hyoshigi(t, dest) {
+      this._noise(t, dest, 'bandpass', 3400, 6, 0.32, 0.001, 0.035);
+      this.wood(t, dest, 2350, 0.12);
+    },
+    // Koto: cuerda pulsada con un pequeño "deslizado" al inicio
+    koto(t, dest, f, dur = 1.2, bright = false, vol = 1) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const o2 = c.createOscillator();
+      const lp = c.createBiquadFilter();
+      const g = c.createGain();
+      o.type = 'sawtooth';
+      o2.type = 'triangle';
+      o.frequency.value = f;
+      o2.frequency.value = f * 2;
+      o.detune.setValueAtTime(-45, t);
+      o.detune.linearRampToValueAtTime(0, t + 0.05);
+      lp.type = 'lowpass';
+      lp.Q.value = 2;
+      lp.frequency.setValueAtTime(bright ? 6500 : 4200, t);
+      lp.frequency.exponentialRampToValueAtTime(bright ? 1100 : 700, t + 0.25);
+      this._env(g, t, (bright ? 0.075 : 0.085) * vol, 0.002, dur);
+      const g2 = c.createGain();
+      g2.gain.value = 0.25;
+      o.connect(lp);
+      o2.connect(g2);
+      g2.connect(lp);
+      lp.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + dur + 0.05, dest);
+      this._play(o2, t, t + dur + 0.05, dest);
+    },
+    // Shakuhachi: flauta de bambú con aire, vibrato y entrada deslizada
+    flute(t, dest, f, dur) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const o2 = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o2.type = 'triangle';
+      o.frequency.setValueAtTime(f * 0.97, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.12);
+      o2.frequency.value = f * 2;
+      const lfo = c.createOscillator();
+      const lg = c.createGain();
+      lfo.frequency.value = 5;
+      lg.gain.setValueAtTime(0, t);
+      lg.gain.linearRampToValueAtTime(f * 0.01, t + Math.min(0.5, dur * 0.6));
+      lfo.connect(lg);
+      lg.connect(o.frequency);
+      const g2 = c.createGain();
+      g2.gain.value = 0.12;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.085, t + 0.08);
+      g.gain.setValueAtTime(0.085, t + Math.max(0.1, dur - 0.15));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      o2.connect(g2);
+      g2.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + dur + 0.05, dest);
+      this._play(o2, t, t + dur + 0.05, dest);
+      this._play(lfo, t, t + dur + 0.05, dest);
+      this._noise(t, dest, 'bandpass', f * 2, 2, 0.03, 0.06, dur * 0.8);
+    },
+    // Gong: parciales inarmónicos con caída larga
+    gong(t, dest, root) {
+      const c = this.ctx;
+      let f = root;
+      while (f < 90) f *= 2;
+      [1, 1.48, 2.13, 2.9, 3.8].forEach((m, i) => {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.value = f * m;
+        o.detune.value = (i % 2 ? 6 : -6);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.07 / (i + 1), t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 3.2 - i * 0.4);
+        o.connect(g);
+        g.connect(dest);
+        this._play(o, t, t + 3.3, dest);
+      });
+      this._noise(t, dest, 'bandpass', 600, 0.8, 0.05, 0.01, 0.5);
+    },
+    // Tu golpe en el Mundo 4: taiko (don en el pulso, ko entre pulsos)
+    // Tu golpe en el Mundo 4: taiko audible en cualquier bocina + nota de koto afinada con la música
+    taikoHit(result, sub, root) {
+      if (!this.isRunning()) return;
+      const c = this.ctx;
+      const t = c.currentTime;
+      const onBeat = sub === 'beat';
+      const perfect = result === 'perfect';
+      const v = perfect ? 1 : 0.6;
+      this.taiko(t, this.sfx, (onBeat ? 0.65 : 0.55) * v, onBeat ? 'big' : 'mid');
+      // Cuerpo en frecuencias medias: lo que sí se oye en el celular
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(onBeat ? 470 : 600, t);
+      o.frequency.exponentialRampToValueAtTime(onBeat ? 320 : 420, t + 0.12);
+      this._env(g, t, 1.15 * v, 0.002, 0.18);
+      o.connect(g);
+      g.connect(this.sfx);
+      o.start(t);
+      o.stop(t + 0.22);
+      // "Piel" del tambor: golpe cuadrado filtrado entre 400 y 1200 Hz
+      const s2 = c.createOscillator();
+      const bp = c.createBiquadFilter();
+      const g2 = c.createGain();
+      s2.type = 'square';
+      s2.frequency.setValueAtTime(onBeat ? 210 : 280, t);
+      s2.frequency.exponentialRampToValueAtTime(onBeat ? 150 : 200, t + 0.1);
+      bp.type = 'bandpass';
+      bp.frequency.value = 1000;
+      bp.Q.value = 0.8;
+      this._env(g2, t, 0.5 * v, 0.002, 0.13);
+      s2.connect(bp);
+      bp.connect(g2);
+      g2.connect(this.sfx);
+      s2.start(t);
+      s2.stop(t + 0.16);
+      this._noise(t, this.sfx, 'bandpass', 1000, 1, 0.85 * v, 0.001, 0.07);
+      this.ka(t, this.sfx, perfect ? 1.3 : 0.7);
+      // Nota de koto en la escala de la canción
+      if (perfect && root) {
+        let key = root;
+        while (key < 260) key *= 2;
+        this.koto(t, this.sfx, onBeat ? key * 2 : key * Math.pow(2, 7 / 12) * 2, 0.6, true, 2.4);
+      }
+    },
+
+    // Marimba: madera con armónico agudo
+    marimba(t, dest, f, vol) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const o2 = c.createOscillator();
+      const g = c.createGain();
+      const g2 = c.createGain();
+      o.type = 'sine';
+      o2.type = 'sine';
+      o.frequency.value = f;
+      o2.frequency.value = f * 4;
+      this._env(g, t, vol, 0.002, 0.4);
+      this._env(g2, t, vol * 0.3, 0.001, 0.07);
+      o.connect(g);
+      o2.connect(g2);
+      g.connect(dest);
+      g2.connect(dest);
+      this._play(o, t, t + 0.45, dest);
+      this._play(o2, t, t + 0.1, dest);
+      this._noise(t, dest, 'bandpass', f * 2, 2, vol * 0.25, 0.001, 0.015);
+    },
+
+    // Golpes temáticos de los mundos 1-3 (afinados con la nota de la bolita)
+    themedHit(style, result, f) {
+      if (!this.isRunning()) return;
+      const c = this.ctx;
+      const t = c.currentTime;
+      const perfect = result === 'perfect';
+      const sq = (at, freq, freq2, dur, vol, cut) => {
+        const o = c.createOscillator();
+        const lp = c.createBiquadFilter();
+        const g = c.createGain();
+        o.type = 'square';
+        o.frequency.setValueAtTime(freq, at);
+        if (freq2) o.frequency.exponentialRampToValueAtTime(freq2, at + dur * 0.5);
+        lp.type = 'lowpass';
+        lp.frequency.value = cut;
+        this._env(g, at, vol, 0.002, dur);
+        o.connect(lp);
+        lp.connect(g);
+        g.connect(this.sfx);
+        o.start(at);
+        o.stop(at + dur + 0.05);
+      };
+      if (style === 'chip') {
+        // Arcade: "blip" de videojuego; con PERFECT, sonido de moneda
+        if (perfect) {
+          sq(t, f, 0, 0.06, 0.17, 6000);
+          sq(t + 0.055, f * 1.5, 0, 0.2, 0.17, 6000);
+        } else {
+          sq(t, f, f * 1.25, 0.09, 0.13, 2600);
+        }
+      } else if (style === 'marimba') {
+        // Bosque: marimba, con un toque de madera en PERFECT
+        this.marimba(t, this.sfx, f, perfect ? 0.5 : 0.32);
+        if (perfect) {
+          this.marimba(t, this.sfx, f * 2, 0.12);
+          this.wood(t, this.sfx, 1600, 0.12);
+        }
+      } else if (style === 'space') {
+        // Órbita: "ping" espacial que cae un poquito, con destello en PERFECT
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f * 2 * 1.08, t);
+        o.frequency.exponentialRampToValueAtTime(f * 2, t + 0.08);
+        this._env(g, t, perfect ? 0.32 : 0.2, 0.002, perfect ? 0.45 : 0.25);
+        o.connect(g);
+        g.connect(this.sfx);
+        o.start(t);
+        o.stop(t + 0.5);
+        const o2 = c.createOscillator();
+        const g2 = c.createGain();
+        o2.type = 'triangle';
+        o2.frequency.value = f;
+        this._env(g2, t, perfect ? 0.18 : 0.12, 0.002, 0.2);
+        o2.connect(g2);
+        g2.connect(this.sfx);
+        o2.start(t);
+        o2.stop(t + 0.25);
+        if (perfect) this.bell(t + 0.04, this.sfx, f * 4, 0.06);
+      } else if (style === 'prism') {
+        // Nivel secreto: campanita de cristal; con PERFECT, un destello de colores (arpegio)
+        let g0 = f;
+        while (g0 < 520) g0 *= 2;
+        while (g0 > 1100) g0 /= 2;
+        const glass = (at, freq, vol, dur) => {
+          [[1, 1], [2.76, 0.35], [5.4, 0.12]].forEach(([m, k]) => {
+            const o = c.createOscillator();
+            const g = c.createGain();
+            o.type = 'sine';
+            o.frequency.value = freq * m;
+            this._env(g, at, vol * k, 0.002, dur / (1 + m * 0.3));
+            o.connect(g);
+            g.connect(this.sfx);
+            o.start(at);
+            o.stop(at + dur + 0.05);
+          });
+        };
+        const tri = c.createOscillator();
+        const tg = c.createGain();
+        tri.type = 'triangle';
+        tri.frequency.value = g0 / 2;
+        this._env(tg, t, perfect ? 0.13 : 0.1, 0.002, 0.16);
+        tri.connect(tg);
+        tg.connect(this.sfx);
+        tri.start(t);
+        tri.stop(t + 0.2);
+        glass(t, g0, perfect ? 0.21 : 0.15, perfect ? 0.6 : 0.3);
+        if (perfect) {
+          glass(t + 0.045, g0 * 1.26, 0.09, 0.35);
+          glass(t + 0.09, g0 * 1.5, 0.07, 0.35);
+        }
+        this._noise(t, this.sfx, 'highpass', 6000, 0.7, perfect ? 0.05 : 0.03, 0.001, 0.02);
+      }
+    },
+
+    // Tu golpe en el Mundo 5: acorde de guitarra (abierto con PERFECT, con sordina con GOOD)
+    guitarHit(result, root) {
+      if (!this.isRunning()) return;
+      let base = root || 98;
+      while (base < 82) base *= 2;
+      while (base > 164) base /= 2;
+      const t = this.ctx.currentTime;
+      const perfect = result === 'perfect';
+      this.guitar(t, this.sfx, base, perfect ? 'open' : 'mute', perfect ? 0.38 : 0.14, perfect ? 1.15 : 1.05);
+      // "Púa": ataque corto y brillante para que se sienta el toque
+      this._noise(t, this.sfx, 'highpass', 3500, 0.7, perfect ? 0.06 : 0.04, 0.001, 0.025);
+    },
+
+    // Guitarra solista con vibrato
+    gtrLead(t, dest, f, dur) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      const lfo = c.createOscillator();
+      const lg = c.createGain();
+      lfo.frequency.value = 5.5;
+      lg.gain.setValueAtTime(0, t);
+      lg.gain.linearRampToValueAtTime(f * 0.012, t + Math.min(0.3, dur * 0.6));
+      lfo.connect(lg);
+      lg.connect(o.frequency);
+      const pre = c.createGain();
+      pre.gain.value = 0.6;
+      const sh = c.createWaveShaper();
+      sh.curve = this.distCurve();
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2600;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+      g.gain.setValueAtTime(0.05, t + dur * 0.75);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(pre);
+      pre.connect(sh);
+      sh.connect(lp);
+      lp.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + dur + 0.05, dest);
+      this._play(lfo, t, t + dur + 0.05, dest);
+    },
+
+    // Caja de rock: cuerpo + bordonera
+    snare(t, dest, vel = 0.85) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(200, t);
+      o.frequency.exponentialRampToValueAtTime(160, t + 0.08);
+      this._env(g, t, vel * 0.35, 0.002, 0.1);
+      o.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 0.15, dest);
+      this._noise(t, dest, 'bandpass', 1900, 0.8, vel * 0.5, 0.002, 0.17);
+      this._noise(t, dest, 'highpass', 5000, 0.5, vel * 0.16, 0.002, 0.09);
+    },
+
+    // Tom: golpe grave que baja de tono
+    tom(t, dest, f) {
+      const c = this.ctx;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.22);
+      this._env(g, t, 0.45, 0.003, 0.26);
+      o.connect(g);
+      g.connect(dest);
+      this._play(o, t, t + 0.3, dest);
+      this._noise(t, dest, 'lowpass', 1200, 0.7, 0.08, 0.002, 0.05);
+    },
+
     // Pájaro: dos silbidos rápidos hacia arriba
     chirp(t, dest, f) {
       const c = this.ctx;
@@ -1672,6 +2227,14 @@
       const A = AudioEngine;
       const bus = out || A.runBus;
       if (!bus) return;
+      if (bar.mus.rock) {
+        this.scheduleRockBar(bar, t, bus);
+        return;
+      }
+      if (bar.mus.jp) {
+        this.scheduleJpBar(bar, t, bus);
+        return;
+      }
       const beat = bar.beat;
       const mus = bar.mus;
       const chord = bar.chord;
@@ -1718,6 +2281,18 @@
         }
       }
       if (I >= 3 && mus.pad) A.pad(t, bus, chord.tones, 4 * beat);
+      // Guía: el instrumento del mundo toca el ritmo de las bolitas, en la nota de cada golpe
+      if (bar.guide && bar.hits && !bar.special) {
+        bar.hits.forEach((pos, k) => {
+          let f = chord.tones[k % 3] * 2;
+          while (f > 900) f /= 2;
+          const at = t + pos * beat;
+          if (bar.guide === 'chip') A.lead(at, bus, f, Math.min(0.12, beat * 0.4), 'square', 0.03);
+          else if (bar.guide === 'marimba') A.marimba(at, bus, f, 0.13);
+          else if (bar.guide === 'space') A.bell(at, bus, f, 0.035);
+          else if (bar.guide === 'prism') A.bell(at, bus, f * 2 > 1300 ? f : f * 2, 0.022);
+        });
+      }
       if (bar.cues) {
         const mel = [2, 2.38, 3, 2.38, 2, 3, 2.38, 2];
         bar.cues.forEach((pos, i) => A.cue(t + pos * beat, A.runFx || bus, chord.root * mel[i % mel.length]));
@@ -1726,8 +2301,184 @@
         A.clap(t + 3.5 * beat, bus, 0.5);
         A.clap(t + 3.75 * beat, bus, 0.75);
       }
+    },
+    // Ensamble japonés: taiko, aro (ka), shime, tablillas, koto, shakuhachi, gong y bajo
+    scheduleJpBar(bar, t, runBus) {
+      const A = AudioEngine;
+      const beat = bar.beat;
+      const mus = bar.mus;
+      const chord = bar.chord;
+      const I = bar.intensity;
+      const n = bar.n || 0;
+      const bus = A.ctx.createGain();
+      bus.gain.value = mus.mix || 1;
+      bus.connect(runBus);
+      // Escala In sobre la raíz del compás: 1, b2, 4, 5, b6
+      const IN = [0, 1, 5, 7, 8];
+      let key = chord.root;
+      while (key < 260) key *= 2;
+      const deg = (d) => key * Math.pow(2, (IN[d % 5] + 12 * Math.floor(d / 5)) / 12);
+
+      if (bar.final) {
+        A.taiko(t, bus, 1, 'big');
+        A.gong(t, bus, chord.root);
+        A.koto(t, bus, deg(0), 2.5);
+        A.koto(t + 0.04, bus, deg(3), 2.5);
+        A.bass(t, bus, chord.root, beat * 3, 'triangle');
+        return;
+      }
+
+      const steps = mus.grid;
+      const sd = (4 * beat) / steps;
+      const at = (str, i) => (str && str.length === steps ? str[i] : '.');
+      const every = mus.gongEvery || 8;
+      if (mus.gong && I >= 2 && n % every === 0 && !bar.special) A.gong(t, bus, chord.root);
+      if (mus.drone && I >= 2) A.pad(t, bus, [chord.root * 2, chord.root * 3], 4 * beat);
+      if (mus.synth && I >= 3) A.pad(t, bus, chord.tones, 4 * beat);
+
+      for (let i = 0; i < steps; i++) {
+        const st = t + i * sd;
+        // Taiko de fondo sólo en el mapa; en los niveles el taiko sigue a las bolitas
+        if (!bar.hits) {
+          const tk = at(mus.taiko, i);
+          if (tk !== '.') A.taiko(st, bus, tk === 'X' ? 0.8 : 0.45, tk === 'X' ? 'big' : 'mid');
+        }
+        if (at(mus.ka, i) !== '.') A.ka(st, bus, 0.35);
+        if (I >= 2 && at(mus.shime, i) !== '.') A.shime(st, bus, i % (steps / 4) === 0 ? 0.5 : 0.3);
+        if (I >= 2 && at(mus.clap, i) !== '.') A.hyoshigi(st, bus);
+        const b = at(mus.bass, i);
+        if (b !== '.') {
+          let j = i + 1;
+          while (j < steps && at(mus.bass, j) === '.') j++;
+          const f = b === 'O' ? chord.root * 2 : chord.root;
+          A.bass(st, bus, f, Math.min((j - i) * sd * 0.92, beat * 3), mus.bassWave);
+        }
+        if (I >= 2 && !bar.special) {
+          const k = at(mus.koto, i);
+          if (k !== '.') A.koto(st, bus, deg(+k), mus.kotoBright ? 0.5 : 1.2, mus.kotoBright);
+        }
+      }
+
+      // Shakuhachi: frases de 4 compases en la escala In
+      if (mus.flute && I >= 3 && !bar.special) {
+        const up = mus.fluteUp ? 2 : 0;
+        JP_FLUTE[n % JP_FLUTE.length].forEach(([pos, d, dur]) => A.flute(t + pos * beat, bus, deg(d + up + 5), dur * beat));
+      }
+
+      // Taiko guía: toca exactamente el ritmo de las bolitas
+      if (bar.hits && !bar.special) {
+        bar.hits.forEach((pos) => {
+          const onBeat = Math.abs(pos - Math.round(pos)) < 0.01;
+          A.taiko(t + pos * beat, bus, onBeat ? 0.38 : 0.26, onBeat ? 'big' : 'mid');
+        });
+      }
+
+      if (bar.cues) {
+        const mel = [2, 2.38, 3, 2.38, 2, 3, 2.38, 2];
+        bar.cues.forEach((pos, i) => A.cue(t + pos * beat, A.runFx || bus, chord.root * mel[i % mel.length]));
+      }
+      // Redoble de shime antes del siguiente bloque
+      if (bar.fill) for (let k = 0; k < 6; k++) A.shime(t + (3 + k / 6) * beat, bus, 0.25 + k * 0.06);
+    },
+    // Banda de rock: bombo, caja, platillos, bajo, guitarra rítmica y solista
+    scheduleRockBar(bar, t, runBus) {
+      const A = AudioEngine;
+      // Mezcla propia de cada estilo (el metal es más denso y se baja un poco)
+      const bus = A.ctx.createGain();
+      bus.gain.value = bar.mus.mix || 1;
+      bus.connect(runBus);
+      const beat = bar.beat;
+      const mus = bar.mus;
+      const chord = bar.chord;
+      const I = bar.intensity;
+      const n = bar.n || 0;
+      let base = chord.root;                     // nota grave del acorde de quinta
+      while (base < 82) base *= 2;
+      while (base > 164) base /= 2;
+
+      if (bar.final) {
+        A.kick(t, bus, 1);
+        A.crash(t, bus);
+        A.guitar(t, bus, base, 'open', beat * 3.5);
+        A.bass(t, bus, chord.root, beat * 3, mus.bassWave);
+        return;
+      }
+
+      const steps = mus.grid;
+      const sd = (4 * beat) / steps;
+      const at = (str, i) => (str && str.length === steps ? str[i] : '.');
+      const kicks = I >= 3 ? mus.kick : mus.kickLite;
+      if (I >= 3 && n % 4 === 0 && !bar.special) A.crash(t, bus);
+      if (mus.crowd && I >= 3 && n % 8 === 0) A._noise(t, bus, 'bandpass', 1100, 0.6, 0.06, 0.5, 1.6);
+
+      for (let i = 0; i < steps; i++) {
+        const st = t + i * sd;
+        const k = at(kicks, i);
+        if (k !== '.') A.kick(st, bus, k === 'X' ? 0.95 : 0.55);
+        const sn = at(mus.clap, i);
+        if (sn !== '.' && !(bar.fill && i >= steps * 0.75)) A.snare(st, bus, sn === 'o' ? 0.35 : 0.85);
+        const h = at(mus.hat, i);
+        if (h !== '.') A.hat(st, bus, false, 0.08);
+        if (I >= 2 && at(mus.open, i) !== '.') A.hat(st, bus, true, 0.07);
+
+        const b = at(mus.bass, i);
+        if (b !== '.') {
+          let j = i + 1;
+          while (j < steps && at(mus.bass, j) === '.') j++;
+          A.bass(st, bus, chord.root, Math.min((j - i) * sd * 0.9, beat * 2), mus.bassWave);
+        }
+
+        // Guitarra rítmica (se calla en los compases de escucha y a oscuras del jefe).
+        // En los niveles toca el ritmo de las bolitas; en el mapa, su propio riff.
+        const g = bar.hits ? '.' : at(mus.gtr, i);
+        if (g !== '.' && !bar.special) {
+          let j = i + 1;
+          while (j < steps && at(mus.gtr, j) === '.') j++;
+          let mode = g === 'X' ? 'open' : g === 'h' ? 'high' : 'mute';
+          if (I === 1) mode = 'mute';
+          const dur = mode === 'mute' ? sd * 0.9 : Math.min((j - i) * sd * 0.95, beat * 2.5);
+          A.guitar(st, bus, base, mode, dur);
+        }
+
+        // Guitarra solista
+        if (I >= 2 && mus.leadGtr && !bar.special) {
+          const a = at(mus.arp, i);
+          if (a !== '.') {
+            let j = i + 1;
+            while (j < steps && at(mus.arp, j) === '.') j++;
+            let f = chord.tones[+a] * 2;
+            while (f > 1000) f /= 2;
+            A.gtrLead(st, bus, f, Math.min((j - i) * sd * 0.95, beat * 2));
+          }
+        }
+      }
+
+      if (bar.hits && !bar.special) {
+        const hs = bar.hits.slice().sort((x, y) => x - y);
+        hs.forEach((pos, k) => {
+          const gap = (k + 1 < hs.length ? hs[k + 1] : 4) - pos;
+          let mode = gap >= 1 ? 'open' : 'mute';
+          if (I === 1) mode = 'mute';
+          const dur = mode === 'mute' ? Math.min(gap * beat * 0.9, beat * 0.4) : Math.min(gap * beat * 0.95, beat * 2.5);
+          A.guitar(t + pos * beat, bus, base, mode, dur, 0.65);
+        });
+      }
+
+      if (bar.cues) {
+        const mel = [2, 2.38, 3, 2.38, 2, 3, 2.38, 2];
+        bar.cues.forEach((pos, i) => A.cue(t + pos * beat, A.runFx || bus, chord.root * mel[i % mel.length]));
+      }
+      // Redoble de toms antes del siguiente bloque
+      if (bar.fill) [220, 180, 145, 110].forEach((f, i) => A.tom(t + (3 + i * 0.25) * beat, bus, f));
     }
   };
+
+  const JP_FLUTE = [
+    [[0, 3, 1.5], [1.5, 2, 0.5], [2, 1, 2]],
+    [[0, 2, 1], [1, 3, 1], [2, 4, 2]],
+    [[0, 5, 1.5], [1.5, 4, 0.5], [2, 3, 1], [3, 2, 1]],
+    [[0, 1, 1], [1, 0, 3]]
+  ];
 
   /* ---------------- Música de los menús ----------------
      Pieza lo-fi propia (92 BPM, Fa7 - Mim7 - Rem7 - Do7), distinta a la de los
@@ -1808,22 +2559,13 @@
         }
       }
     },
-    4: { // Neo Ciudad: synthwave en tresillos, bajos de sierra
-      gain: 0.63, chords: CH.em, melWave: 'sawtooth', melVol: 0.026,
-      mus: { grid: 12, kick: 'X.....x.....', clap: '...o.....o..', hat: 'xoxxoxxoxxox', open: '',
-        bass: 'R..R..R..O..', bassWave: 'sawtooth', arp: '012012012012', leadWave: 'sawtooth', arpOct: 2, leadVol: 0.014, pad: true },
-      melody: [
-        [[0, 2, 4, 1.5], [1.67, 1, 4, 0.33], [2, 0, 4, 2]],
-        [[0, 1, 4, 1], [1.33, 2, 4, 0.67], [2, 0, 8, 2]],
-        [[0, 0, 8, 0.67], [0.67, 2, 4, 0.67], [1.33, 1, 4, 0.67], [2, 2, 4, 2]],
-        [[0, 1, 4, 3]]
-      ],
+    4: { // Neo Ciudad: Japón futurista con taiko, koto, shakuhachi y gong
+      gain: 0.45, chords: CH.jp, mus: MUS.jpMap, melody: [[]],
       extras() {}
     },
-    5: { // Gran Final: funk de concierto con público
-      gain: 0.51, chords: CH.gm, melWave: 'square', melVol: 0.03,
-      mus: { grid: 16, kick: 'X..x..x...x.....', clap: '....x.......x...', hat: 'xxoxxxoxxxoxxxox', open: '..........x.....',
-        bass: 'R..RO.R..R.ROR.F', bassWave: 'square', arp: '....1.2.....2.1.', leadWave: 'square', arpOct: 2, leadVol: 0.026, pad: false },
+    5: { // Gran Final: rock de estadio con guitarra solista y público
+      gain: 0.46, chords: CH.gm, melWave: 'gtr', melVol: 1,
+      mus: MUS.rockmap,
       melody: [
         [[0, 2, 4, 0.5], [0.75, 2, 4, 0.25], [1, 1, 4, 0.5], [2, 0, 4, 1]],
         [[0.5, 1, 4, 0.5], [1, 2, 4, 0.5], [1.5, 0, 8, 1.5]],
@@ -1951,11 +2693,12 @@
       const b = MENU_BEAT;
       const chord = th.chords[n % 4];
       const intensity = fresh && n < 1 ? 1 : 3;
-      Music.scheduleBar({ t: 0, beat: b, mus: th.mus, chord, intensity, final: false, fill: !th.calm && n % 4 === 3 }, t, bus);
+      Music.scheduleBar({ n, t: 0, beat: b, mus: th.mus, chord, intensity, final: false, fill: !th.calm && n % 4 === 3 }, t, bus);
       th.melody[n % th.melody.length].forEach(([pos, idx, oct, d]) => {
         const f = chord.tones[idx] * oct / 2;
         const at = t + pos * b;
         if (th.melWave === 'wood') A.wood(at, bus, f, th.melVol);
+        else if (th.melWave === 'gtr') A.gtrLead(at, bus, f, d * b * 0.95);
         else if (th.melWave === 'bell') A.bell(at, bus, f, th.melVol);
         else A.lead(at, bus, f, d * b * 0.9, th.melWave, th.melVol);
       });
@@ -2770,30 +3513,114 @@
   }
 
   // Nube jefe para los niveles: compacta, con cara de villano
-  function bossCloudSVG() {
-    return `<svg viewBox="0 0 160 112" aria-hidden="true">
-      <g fill="#1E1933" transform="translate(0 6)">
-        <circle cx="40" cy="62" r="30"/><circle cx="80" cy="46" r="38"/><circle cx="121" cy="62" r="29"/>
-        <rect x="22" y="58" width="117" height="36" rx="18"/>
-      </g>
-      <g fill="#3A3354">
-        <circle cx="40" cy="62" r="30"/><circle cx="80" cy="46" r="38"/><circle cx="121" cy="62" r="29"/>
-        <rect x="22" y="58" width="117" height="36" rx="18"/>
-      </g>
-      <g fill="#4E4670">
-        <circle cx="66" cy="28" r="12"/><circle cx="30" cy="52" r="8"/><circle cx="106" cy="40" r="7"/>
-      </g>
-      <g stroke="#8E86A8" stroke-width="2" stroke-linecap="round" opacity="0.55">
-        <path d="M30 80 h8 M118 84 h10 M58 22 h6 M100 26 h7"/>
-      </g>
+  // Nube base de los jefes (sombra, cuerpo y brillos)
+  function bossPuffs(shade, body, hi, extra = '') {
+    const shape = '<circle cx="40" cy="62" r="30"/><circle cx="80" cy="46" r="38"/><circle cx="121" cy="62" r="29"/><rect x="22" y="58" width="117" height="36" rx="18"/>';
+    return `<g fill="${shade}" transform="translate(0 6)">${shape}</g>
+      <g fill="${body}" ${extra}>${shape}</g>
+      <g fill="${hi}"><circle cx="66" cy="28" r="12"/><circle cx="30" cy="52" r="8"/><circle cx="106" cy="40" r="7"/></g>`;
+  }
+
+  // Cada mundo tiene su propio jefe. Sin número de mundo se dibuja la nube genérica (tutorial).
+  function bossCloudSVG(world) {
+    const svg = (inner) => `<svg viewBox="0 0 160 112" aria-hidden="true">${inner}</svg>`;
+    const angryEyes = (col) => `
       <path d="M50 52 L70 60 M110 52 L90 60" stroke="#1A0F33" stroke-width="5" stroke-linecap="round"/>
-      <ellipse cx="64" cy="66" rx="8" ry="7" fill="#FF5E57"/>
-      <ellipse cx="96" cy="66" rx="8" ry="7" fill="#FF5E57"/>
-      <circle cx="66" cy="64" r="2.4" fill="#FFF4E6"/>
-      <circle cx="98" cy="64" r="2.4" fill="#FFF4E6"/>
+      <ellipse cx="64" cy="66" rx="8" ry="7" fill="${col}"/><ellipse cx="96" cy="66" rx="8" ry="7" fill="${col}"/>
+      <circle cx="66" cy="64" r="2.4" fill="#FFF4E6"/><circle cx="98" cy="64" r="2.4" fill="#FFF4E6"/>`;
+    const bolt = (x, y, s = 1) => `<path transform="translate(${x} ${y}) scale(${s})" d="M0 0 L-8 16 L-1 16 L-7 32 L8 12 L1 12 L7 0 Z" fill="#FFD23F" stroke="#1A0F33" stroke-width="2" stroke-linejoin="round"/>`;
+
+    if (world === 1) {
+      // APAGÓN: nube de arcade fundida, ojos de píxel y un enchufe desconectado
+      return svg(`${bossPuffs('#14111F', '#2A2540', '#3D365C')}
+        <g stroke="#FF4D8D" stroke-width="1.2" opacity="0.18"><path d="M18 70 H142 M18 76 H142 M18 82 H142 M22 88 H138 M30 94 H130 M44 40 H116 M50 34 H110"/></g>
+        <g class="bx-power" fill="none" stroke="#FF4D8D" stroke-width="3" stroke-linecap="round" opacity="0.8">
+          <path d="M74.5 27 A9 9 0 1 0 85.5 27"/><path d="M80 22 V32"/></g>
+        <g fill="#1A0F33"><rect x="48" y="52" width="6" height="4"/><rect x="54" y="56" width="6" height="4"/><rect x="60" y="58" width="8" height="4"/>
+          <rect x="106" y="52" width="6" height="4"/><rect x="100" y="56" width="6" height="4"/><rect x="92" y="58" width="8" height="4"/></g>
+        <g class="bx-eyes" fill="#FF4D8D"><rect x="56" y="62" width="16" height="12"/><rect x="88" y="62" width="16" height="12"/></g>
+        <g fill="#FFF4E6"><rect x="64" y="64" width="4" height="4"/><rect x="96" y="64" width="4" height="4"/></g>
+        <g fill="#FF4D8D"><rect x="62" y="84" width="6" height="4"/><rect x="68" y="80" width="6" height="4"/><rect x="74" y="84" width="6" height="4"/>
+          <rect x="80" y="80" width="6" height="4"/><rect x="86" y="84" width="6" height="4"/><rect x="92" y="80" width="6" height="4"/></g>
+        <path d="M132 86 C142 96 128 104 140 110" fill="none" stroke="#1A0F33" stroke-width="5" stroke-linecap="round"/>
+        <path d="M132 86 C142 96 128 104 140 110" fill="none" stroke="#5B5378" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="134" y="104" width="14" height="10" rx="2" transform="rotate(-20 141 109)" fill="#8E86A8" stroke="#1A0F33" stroke-width="2"/>
+        <g class="bx-spark" stroke="#FFD23F" stroke-width="2.4" stroke-linecap="round"><path d="M152 98 L158 94 M152 104 L160 104 M148 92 L150 86"/></g>`);
+    }
+
+    if (world === 2) {
+      // SIESTA ETERNA: nube de musgo con gorro de dormir, ojos con sueño y "Zzz"
+      return svg(`${bossPuffs('#1E2A27', '#3A4A44', '#53665C')}
+        <g fill="#2FA37E"><path d="M30 78 q6 -8 12 0 q-6 4 -12 0z"/><path d="M118 82 q6 -8 12 0 q-6 4 -12 0z"/><path d="M98 30 q5 -7 10 0 q-5 4 -10 0z"/></g>
+        <g transform="translate(40 40) rotate(-22)">
+          <path d="M-22 0 C-20 -26 16 -36 36 -16 Q42 -8 40 2 Q32 -14 18 -14 Q6 -12 20 0 Z" fill="#2B6E8F" stroke="#13202E" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M-12 -14 L-6 -2 M2 -22 L6 -4 M16 -22 L14 -10 M28 -20 L24 -12" stroke="#7FD3F0" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+          <rect x="-26" y="-5" width="50" height="10" rx="5" fill="#FFF4E6" stroke="#13202E" stroke-width="2.5"/>
+          <circle class="bx-pom" cx="41" cy="5" r="6.5" fill="#FFF4E6" stroke="#13202E" stroke-width="2"/>
+        </g>
+        <ellipse cx="64" cy="67" rx="9" ry="7" fill="#FFB347"/><ellipse cx="96" cy="67" rx="9" ry="7" fill="#FFB347"/>
+        <circle cx="64" cy="70" r="3" fill="#1A0F33"/><circle cx="96" cy="70" r="3" fill="#1A0F33"/>
+        <g class="bx-lids" fill="#3A4A44" stroke="#13202E" stroke-width="3" stroke-linecap="round">
+          <path d="M54 68 A10 9 0 0 1 74 68 Z"/><path d="M86 68 A10 9 0 0 1 106 68 Z"/></g>
+        <path d="M52 56 L72 61 M108 56 L88 61" stroke="#13202E" stroke-width="4" stroke-linecap="round"/>
+        <ellipse class="bx-yawn" cx="80" cy="86" rx="7" ry="5" fill="#13202E" stroke="#FFB347" stroke-width="2"/>
+        <g class="bx-zz" font-family="Arial Black, Arial, sans-serif" font-weight="900" fill="#3DF5C2" stroke="#13202E" stroke-width="1.5" paint-order="stroke">
+          <text x="128" y="56" font-size="13">z</text><text x="138" y="44" font-size="17">Z</text><text x="148" y="28" font-size="11">z</text></g>`);
+    }
+
+    if (world === 3) {
+      // EL VACÍO: nube hecha de espacio, con un anillo planetario y un remolino por boca
+      const ring = 'cx="80" cy="66" rx="78" ry="16" transform="rotate(-10 80 66)"';
+      return svg(`<ellipse ${ring} fill="none" stroke="#7CC8FF" stroke-width="5" opacity="0.55"/>
+        ${bossPuffs('#05040C', '#120E26', '#211A42')}
+        <g class="bx-stars" fill="#FFF4E6"><circle cx="36" cy="58" r="1.4"/><circle cx="52" cy="36" r="1.1"/><circle cx="96" cy="24" r="1.5"/>
+          <circle cx="118" cy="56" r="1.2"/><circle cx="130" cy="78" r="1.4"/><circle cx="44" cy="88" r="1.1"/><circle cx="112" cy="90" r="1"/><circle cx="74" cy="20" r="1"/></g>
+        <path d="M48 54 L70 60 M112 54 L90 60" stroke="#7CC8FF" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+        <circle cx="62" cy="67" r="8" fill="#05040C" stroke="#7CC8FF" stroke-width="3"/><circle cx="98" cy="67" r="8" fill="#05040C" stroke="#7CC8FF" stroke-width="3"/>
+        <circle cx="62" cy="67" r="2.2" fill="#FFF4E6"/><circle cx="98" cy="67" r="2.2" fill="#FFF4E6"/>
+        <g class="bx-vortex"><circle cx="80" cy="88" r="9" fill="#05040C" stroke="#B07CFF" stroke-width="2.5"/>
+          <path d="M80 88 m-5 0 a5 5 0 1 1 5 5 a8 8 0 0 1 -8 -8" fill="none" stroke="#B07CFF" stroke-width="2" stroke-linecap="round"/></g>
+        <ellipse ${ring} fill="none" stroke="#7CC8FF" stroke-width="5" stroke-dasharray="178 400" opacity="0.95"/>
+        <circle cx="146" cy="26" r="5" fill="#FFD23F" opacity="0.9"/><circle cx="14" cy="36" r="3" fill="#B07CFF"/>`);
+    }
+
+    if (world === 4) {
+      // SOMBRA NEÓN: nube ninja con borde de neón, antifaz con cintas y shuriken
+      return svg(`<g fill="none" stroke="#FF7EDB" stroke-width="7" class="bx-neon" transform="translate(0 2)">
+          <circle cx="40" cy="62" r="30"/><circle cx="80" cy="46" r="38"/><circle cx="121" cy="62" r="29"/></g>
+        ${bossPuffs('#0C0816', '#221838', '#33265A')}
+        <path d="M24 56 Q80 46 138 56 L138 76 Q80 68 24 78 Z" fill="#0C0816"/>
+        <path d="M24 56 Q80 46 138 56" fill="none" stroke="#FF7EDB" stroke-width="2"/>
+        <path class="bx-ribbon" d="M136 58 Q150 52 158 40 Q152 56 158 64 Q148 64 136 70 Z" fill="#FF7EDB" stroke="#0C0816" stroke-width="2"/>
+        <path d="M50 66 L72 61 L70 68 Z M110 66 L88 61 L90 68 Z" fill="#5CF2FF"/>
+        <path d="M66 86 L72 82 L78 86 L84 82 L90 86 L96 82" fill="none" stroke="#5CF2FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <g transform="translate(146 92)"><g class="bx-shuriken">
+          <path d="M0 -12 L3 -3 L12 0 L3 3 L0 12 L-3 3 L-12 0 L-3 -3 Z" fill="#B9C2D8" stroke="#0C0816" stroke-width="2" stroke-linejoin="round"/>
+          <circle r="2.5" fill="#0C0816"/></g></g>`);
+    }
+
+    if (world === 5) {
+      // GRAN SILENCIO: el jefe final, con corona, rayos y aura roja
+      return svg(`<g class="bx-aura" fill="none" stroke="#FF5E57" stroke-width="4" opacity="0.5"><circle cx="40" cy="64" r="35"/><circle cx="80" cy="48" r="43"/><circle cx="121" cy="64" r="34"/></g>
+        ${bossPuffs('#1E1933', '#3A3354', '#4E4670')}
+        <g stroke="#8E86A8" stroke-width="2" stroke-linecap="round" opacity="0.55"><path d="M30 80 h8 M118 84 h10"/></g>
+        <g class="bx-crown" transform="translate(116 34) rotate(16)">
+          <path d="M-20 8 L-20 -12 L-10 -2 L0 -18 L10 -2 L20 -12 L20 8 Z" fill="#FFD23F" stroke="#1A0F33" stroke-width="2.5" stroke-linejoin="round"/>
+          <rect x="-22" y="4" width="44" height="8" rx="3" fill="#E0A800" stroke="#1A0F33" stroke-width="2.5"/>
+          <circle cx="0" cy="-6" r="3.4" fill="#FF5E57"/><circle cx="-12" cy="8" r="2.2" fill="#B07CFF"/><circle cx="12" cy="8" r="2.2" fill="#B07CFF"/>
+          <circle cx="-20" cy="-12" r="2.4" fill="#FFF4E6"/><circle cx="0" cy="-18" r="2.4" fill="#FFF4E6"/><circle cx="20" cy="-12" r="2.4" fill="#FFF4E6"/>
+        </g>
+        ${angryEyes('#FF5E57')}
+        <path d="M60 86 L66 80 L72 87 L80 79 L88 87 L94 80 L100 86" fill="#1A0F33" stroke="#FF5E57" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${bolt(144, 72)}${bolt(14, 74, 0.8)}`);
+    }
+
+    // Nube genérica (tutorial)
+    return svg(`${bossPuffs('#1E1933', '#3A3354', '#4E4670')}
+      <g stroke="#8E86A8" stroke-width="2" stroke-linecap="round" opacity="0.55"><path d="M30 80 h8 M118 84 h10 M58 22 h6 M100 26 h7"/></g>
+      ${angryEyes('#FF5E57')}
       <path d="M64 86 Q72 80 80 84 Q88 80 96 86" fill="none" stroke="#FF5E57" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M140 72 L132 88 L139 88 L133 104 L148 84 L141 84 L147 72 Z" fill="#FFD23F" stroke="#1A0F33" stroke-width="2" stroke-linejoin="round"/>
-    </svg>`;
+      ${bolt(144, 72)}`);
   }
 
   // Música de la historia
@@ -3721,7 +4548,7 @@
   const bossEl = $('boss');
   const bossCloud = $('boss-cloud');
   const bossFill = $('boss-fill');
-  let cloudCache = '';
+  const cloudCache = {};
 
   function bossPulse(cls, ms) {
     bossEl.classList.remove(cls);
@@ -4117,13 +4944,22 @@
     showJudgment(result, sub);
     buddyReact(result);
     const wave = state.level.hitWave;
+    const rock = state.level.rockHits;
+    const jp = state.level.jpHits;
+    const style = state.level.hitStyle;
     if (result === 'perfect') {
-      AudioEngine.hit('perfect', note.freq, wave);
+      if (rock) AudioEngine.guitarHit('perfect', note.root);
+      else if (jp) AudioEngine.taikoHit('perfect', note.sub, note.root);
+      else if (style) AudioEngine.themedHit(style, 'perfect', note.freq);
+      else AudioEngine.hit('perfect', note.freq, wave);
       burst();
       state.ripples.push({ t: now, col: COLORS.yellow });
       state.flash = { t: now, col: COLORS.yellow };
     } else if (result === 'good') {
-      AudioEngine.hit('good', note.freq, wave);
+      if (rock) AudioEngine.guitarHit('good', note.root);
+      else if (jp) AudioEngine.taikoHit('good', note.sub, note.root);
+      else if (style) AudioEngine.themedHit(style, 'good', note.freq);
+      else AudioEngine.hit('good', note.freq, wave);
       state.ripples.push({ t: now, col: COLORS.sky });
       state.flash = { t: now, col: COLORS.sky };
     } else {
@@ -4387,7 +5223,7 @@
 
   /* ---------------- Flujo de partida ---------------- */
   function resetRun() {
-    state.notes = state.song.notes.map((n) => ({ t: n.t, sub: n.sub, freq: n.freq, dark: n.dark, judged: false, result: null }));
+    state.notes = state.song.notes.map((n) => ({ t: n.t, sub: n.sub, freq: n.freq, root: n.root, dark: n.dark, judged: false, result: null }));
     state.cursor = 0;
     state.drawStart = 0;
     state.lineStart = 0;
@@ -4457,9 +5293,13 @@
     tutoHint.classList.remove('is-tap');
     stage.classList.toggle('is-boss', !!level.boss);
     bossEl.hidden = !level.boss;
+    bossEl.dataset.world = level.boss ? level.world : '';
     if (level.boss) {
-      if (!cloudCache) cloudCache = bossCloudSVG();
-      if (!bossCloud.firstChild) bossCloud.innerHTML = cloudCache;
+      if (!cloudCache[level.world]) cloudCache[level.world] = bossCloudSVG(level.world);
+      if (bossCloud.dataset.world !== String(level.world)) {
+        bossCloud.innerHTML = cloudCache[level.world];
+        bossCloud.dataset.world = level.world;
+      }
       $('boss-name').textContent = WORLDS[level.world - 1].bossName.toUpperCase();
     }
     document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1A0F33');

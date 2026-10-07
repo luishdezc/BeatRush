@@ -2959,3 +2959,65 @@ h2, h3 { font-weight: 700; }
   .tj { font-size: 21px; }
   .tuto-boss { width: 100px; }
 }
+
+
+/* =========================================================
+   JEFES: CADA MUNDO TIENE EL SUYO
+   ========================================================= */
+.boss-cloud svg { transform-origin: 50% 60%; }
+.boss-cloud [class^="bx-"] { transform-box: fill-box; transform-origin: center; }
+
+/* 1 · Apagón: parpadea como una máquina sin corriente */
+.boss[data-world="1"] .boss-name { color: #FF8DB5; }
+.boss[data-world="1"] .boss-bar i { background: linear-gradient(90deg, #FF4D8D, #FFD23F); }
+.boss[data-world="1"] .bx-eyes { animation: bx-flicker 2.6s steps(1) infinite; }
+.boss[data-world="1"] .bx-power { animation: bx-flicker 3.4s steps(1) infinite 0.7s; }
+.boss[data-world="1"] .bx-spark { animation: bx-spark 0.5s steps(2) infinite; }
+.stage.is-dark .boss[data-world="1"] .boss-cloud { filter: drop-shadow(0 0 14px rgba(255, 77, 141, 0.8)); }
+
+/* 2 · Siesta Eterna: respira despacio y suelta "Zzz" */
+.boss[data-world="2"] .boss-name { color: #8FF5D6; }
+.boss[data-world="2"] .boss-bar i { background: linear-gradient(90deg, #2FA37E, #FFB347); }
+.boss[data-world="2"] .boss-cloud svg { animation: bx-breathe 2.8s ease-in-out infinite; }
+.boss[data-world="2"] .bx-zz text { animation: bx-zz 2.8s ease-in-out infinite; }
+.boss[data-world="2"] .bx-zz text:nth-child(2) { animation-delay: 0.4s; }
+.boss[data-world="2"] .bx-zz text:nth-child(3) { animation-delay: 0.8s; }
+.boss[data-world="2"].is-sing .bx-lids { opacity: 0; }
+.stage.is-dark .boss[data-world="2"] .boss-cloud { filter: drop-shadow(0 0 14px rgba(255, 179, 71, 0.75)); }
+
+/* 3 · El Vacío: flota y su boca es un remolino que gira */
+.boss[data-world="3"] .boss-name { color: #A9DBFF; }
+.boss[data-world="3"] .boss-bar i { background: linear-gradient(90deg, #7CC8FF, #B07CFF); }
+.boss[data-world="3"] .boss-cloud svg { animation: bx-float 3.2s ease-in-out infinite; }
+.boss[data-world="3"] .bx-vortex { animation: bx-spin 2.2s linear infinite; }
+.boss[data-world="3"] .bx-stars { animation: bx-twinkle 1.6s ease-in-out infinite alternate; }
+.stage.is-dark .boss[data-world="3"] .boss-cloud { filter: drop-shadow(0 0 16px rgba(176, 124, 255, 0.85)); }
+
+/* 4 · Sombra Neón: borde de neón que titila y shuriken girando */
+.boss[data-world="4"] .boss-name { color: #FFB3EC; }
+.boss[data-world="4"] .boss-bar i { background: linear-gradient(90deg, #FF7EDB, #5CF2FF); }
+.boss[data-world="4"] .bx-neon { animation: bx-neon 1.8s steps(1) infinite; }
+.boss[data-world="4"] .bx-shuriken { animation: bx-spin 0.9s linear infinite; }
+.boss[data-world="4"] .bx-ribbon { animation: bx-ribbon 0.6s ease-in-out infinite alternate; transform-origin: 0% 50%; }
+.stage.is-dark .boss[data-world="4"] .boss-cloud { filter: drop-shadow(0 0 14px rgba(92, 242, 255, 0.85)); }
+
+/* 5 · Gran Silencio: más grande, con corona y aura que late */
+.boss[data-world="5"] .boss-name { color: #FFD23F; }
+.boss[data-world="5"] .boss-bar i { background: linear-gradient(90deg, #FF5E57, #FFD23F); }
+.boss[data-world="5"] .boss-cloud svg { transform: scale(1.12); }
+.boss[data-world="5"] .bx-aura { animation: bx-aura 1.2s ease-in-out infinite alternate; }
+
+@keyframes bx-flicker { 0%, 100% { opacity: 1; } 46% { opacity: 0.25; } 50% { opacity: 1; } 53% { opacity: 0.35; } 56% { opacity: 1; } }
+@keyframes bx-spark { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes bx-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04, 0.97); } }
+@keyframes bx-zz { 0%, 100% { opacity: 0.25; transform: translateY(2px); } 50% { opacity: 1; transform: translateY(-3px); } }
+@keyframes bx-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes bx-spin { to { transform: rotate(360deg); } }
+@keyframes bx-twinkle { from { opacity: 0.35; } to { opacity: 1; } }
+@keyframes bx-neon { 0%, 100% { opacity: 0.9; } 70% { opacity: 0.4; } 73% { opacity: 0.95; } 76% { opacity: 0.5; } 79% { opacity: 0.9; } }
+@keyframes bx-ribbon { from { transform: rotate(-4deg); } to { transform: rotate(6deg); } }
+@keyframes bx-aura { from { opacity: 0.15; transform: scale(0.97); } to { opacity: 0.55; transform: scale(1.03); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .boss .boss-cloud svg, .boss .boss-cloud svg * { animation: none !important; }
+}
