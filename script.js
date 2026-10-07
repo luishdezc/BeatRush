@@ -2042,6 +2042,75 @@
       }
     },
 
+    // Sonidos de los trucos de Pum en la pantalla de inicio
+    buddyTrick(n) {
+      if (!this.isRunning()) return;
+      const c = this.ctx;
+      const t = c.currentTime + 0.005;
+      let out = this.sfx;
+      if (n === 4) {
+        // la batería es más fuerte que los otros trucos: la bajamos un poco
+        out = c.createGain();
+        out.gain.value = 0.5;
+        out.connect(this.sfx);
+      }
+      const tone = (at, f, f2, dur, wave, vol, cut = 4000, glide = 0.6) => {
+        const o = c.createOscillator();
+        const fl = c.createBiquadFilter();
+        const g = c.createGain();
+        o.type = wave;
+        o.frequency.setValueAtTime(f, at);
+        if (f2) o.frequency.exponentialRampToValueAtTime(f2, at + dur * glide);
+        fl.type = 'lowpass';
+        fl.frequency.value = cut;
+        this._env(g, at, vol, 0.004, dur);
+        o.connect(fl);
+        fl.connect(g);
+        g.connect(out);
+        o.start(at);
+        o.stop(at + dur + 0.05);
+        return o;
+      };
+      if (n === 1) {
+        // ¡Boing!: resorte que sube y rebota al caer
+        tone(t, 180, 720, 0.32, 'sine', 0.32, 4000, 0.5);
+        tone(t, 360, 1440, 0.22, 'triangle', 0.08, 3000, 0.5);
+        tone(t + 0.6, 300, 140, 0.16, 'sine', 0.26);
+        this._noise(t + 0.6, out, 'lowpass', 900, 0.7, 0.12, 0.002, 0.06);
+      } else if (n === 2) {
+        // ¡Wiii!: voltereta con silbido de aire
+        this._noise(t, out, 'bandpass', 1400, 1.4, 0.3, 0.12, 0.45);
+        tone(t, 520, 1560, 0.5, 'triangle', 0.26, 5000, 0.8);
+        [0, 0.08, 0.16].forEach((d, i) => tone(t + 0.55 + d, [1046.5, 1318.5, 1568][i], 0, 0.18, 'square', 0.08, 3600));
+      } else if (n === 3) {
+        // ¡A bailar!: frase chiptune con palmadas
+        const mel = [523.25, 659.25, 783.99, 659.25, 880, 783.99, 1046.5];
+        mel.forEach((f, i) => tone(t + i * 0.14, f, 0, 0.13, 'square', 0.06, 3200));
+        [0, 0.28, 0.56, 0.84].forEach((d) => this.clap(t + d, out, 0.35));
+        tone(t, 130.81, 0, 0.5, 'triangle', 0.18, 900);
+        tone(t + 0.56, 174.61, 0, 0.4, 'triangle', 0.16, 900);
+      } else if (n === 4) {
+        // Solo de batería: redoble de toms y platillo
+        [0, 0.09, 0.18, 0.27, 0.36, 0.45].forEach((d, i) => this.tom(t + d, out, [330, 300, 260, 220, 190, 160][i]));
+        [0.54, 0.62, 0.7].forEach((d) => this.snare(t + d, out, 0.5));
+        this.kick(t + 0.82, out, 0.8);
+        this._noise(t + 0.82, out, 'highpass', 3500, 0.5, 0.18, 0.004, 1.1);
+      } else {
+        // ¡Me mareé!: silbato que baja temblando y un "bonk"
+        const o = tone(t, 1400, 380, 0.85, 'sine', 0.2, 5000, 0.95);
+        const lfo = c.createOscillator();
+        const lg = c.createGain();
+        lfo.frequency.value = 9;
+        lg.gain.value = 40;
+        lfo.connect(lg);
+        lg.connect(o.frequency);
+        lfo.start(t);
+        lfo.stop(t + 0.9);
+        tone(t + 0.9, 160, 90, 0.2, 'sine', 0.3);
+        this.wood(t + 0.9, out, 900, 0.18);
+      }
+    },
+
     // Baja la música de la partida (al perder)
     fadeRun(dur) {
       const g = this.runBus;
@@ -2599,7 +2668,7 @@
 
     // Enciende, cambia de tema o apaga según la pantalla visible
     sync(screen) {
-      if (!MENU_SCREENS[screen] || document.hidden) {
+      if (!MENU_SCREENS[screen] || document.hidden || !progress.menuMusic) {
         this.stop();
         return;
       }
@@ -2823,6 +2892,7 @@
       tutorialSeen: false,
       muted: false,
       musicVol: 80,
+      menuMusic: true,
       offsetMs: 0
     };
   }
@@ -2861,6 +2931,7 @@
         p.secretCleared = !!d.secretCleared;
         p.muted = !!d.muted;
         if (d.musicVol !== undefined) p.musicVol = clamp(parseInt(d.musicVol, 10) || 0, 0, 100);
+        p.menuMusic = d.menuMusic !== false;
         p.introSeen = !!d.introSeen;
         p.endingSeen = !!d.endingSeen;
         p.thanksSeen = !!d.thanksSeen;
@@ -3035,6 +3106,63 @@
     buddyTitle.classList.toggle('has-crown', progress.secretCleared);
   }
 
+  /* ---------------- Pum en la pantalla de inicio ----------------
+     Cada toque hace un truco distinto (van en orden y vuelven a empezar). */
+  const HERO_TRICKS = [
+    { say: '¡Boing!', ms: 950, fx: [] },
+    { say: '¡Wiii!', ms: 1000, fx: ['✦', '✧', '✦'] },
+    { say: '¡A bailar!', ms: 1300, fx: ['♪', '♫', '♪', '♬'] },
+    { say: '¡Ta-ka-tá!', ms: 1250, fx: ['💥', '!', '💥'] },
+    { say: '¡Me mareé!', ms: 1500, fx: ['★', '☆', '★'] }
+  ];
+  const heroBubble = document.createElement('span');
+  heroBubble.className = 'hero-bubble';
+  heroBubble.setAttribute('aria-hidden', 'true');
+  buddyTitle.appendChild(heroBubble);
+  buddyTitle.setAttribute('role', 'button');
+  buddyTitle.setAttribute('tabindex', '0');
+  buddyTitle.setAttribute('aria-label', 'Toca a Pum para que haga un truco');
+  buddyTitle.removeAttribute('aria-hidden');
+  let heroTrick = 0;
+  let heroTimer = 0;
+
+  function playHeroTrick() {
+    const n = heroTrick % HERO_TRICKS.length + 1;
+    heroTrick++;
+    const trick = HERO_TRICKS[n - 1];
+    clearTimeout(heroTimer);
+    for (let i = 1; i <= HERO_TRICKS.length; i++) buddyTitle.classList.remove('is-trick-' + i);
+    buddyTitle.classList.remove('has-bubble');
+    buddyTitle.querySelectorAll('.hero-fx').forEach((el) => el.remove());
+    void buddyTitle.offsetWidth;
+    buddyTitle.classList.add('is-trick-' + n, 'has-bubble');
+    heroBubble.textContent = trick.say;
+    trick.fx.forEach((ch, i) => {
+      const fx = document.createElement('span');
+      fx.className = 'hero-fx';
+      fx.textContent = ch;
+      fx.style.setProperty('--i', i);
+      fx.style.setProperty('--n', trick.fx.length);
+      buddyTitle.appendChild(fx);
+    });
+    const sound = () => AudioEngine.buddyTrick(n);
+    if (AudioEngine.isRunning()) sound();
+    else AudioEngine.unlock().then((ok) => { if (ok) sound(); });
+    heroTimer = setTimeout(() => {
+      buddyTitle.classList.remove('is-trick-' + n, 'has-bubble');
+      buddyTitle.querySelectorAll('.hero-fx').forEach((el) => el.remove());
+    }, trick.ms);
+  }
+
+  buddyTitle.addEventListener('click', playHeroTrick);
+  buddyTitle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) playHeroTrick();
+    }
+  });
+
   /* ---------------- Mapas ----------------
      mapMode 0 = mapa de mundos. mapMode 1..5 = mapa de ese mundo.
      Las claves de selección son 'W1'..'W5', 'S' o el id de un nivel ('2-3'). */
@@ -3070,6 +3198,148 @@
     return (un[un.length - 1] || lv[0]).id;
   }
 
+  /* ---------------- Ilustraciones del mapa de mundos ----------------
+     Cada mundo es una isla flotante con su paisaje. Beat City enciende un
+     edificio por cada ritmo recuperado y el nivel secreto es un cristal. */
+  function islandBase(ground, rim, rock, rockDark) {
+    return `<ellipse cx="50" cy="95" rx="22" ry="3.5" fill="rgba(0,0,0,0.28)"/>
+      <path d="M13 62 Q22 78 34 84 Q42 98 50 99 Q58 98 66 84 Q78 78 87 62 Z" fill="${rock}"/>
+      <path d="M24 70 Q36 80 50 82 Q64 80 76 70 M34 84 Q50 90 66 84" fill="none" stroke="${rockDark}" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M44 92 L50 99 L56 92" fill="${rockDark}"/>
+      <ellipse cx="50" cy="63" rx="38" ry="12.5" fill="${ground}"/>
+      <ellipse cx="50" cy="60.5" rx="37" ry="11" fill="${rim}"/>`;
+  }
+
+  function worldIslandSVG(n) {
+    const svg = (inner) => `<svg class="island-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">${inner}</svg>`;
+    if (n === 1) {
+      // Arcade Nocturno: edificios con ventanas y una máquina de arcade
+      return svg(`${islandBase('#2A0F4A', '#4A1E78', '#3A1460', '#22093C')}
+        <rect x="18" y="26" width="16" height="36" rx="2" fill="#2B1652"/>
+        <rect x="66" y="18" width="18" height="44" rx="2" fill="#2B1652"/>
+        <g fill="#FFD23F"><rect x="21" y="31" width="3" height="4"/><rect x="27" y="38" width="3" height="4"/><rect x="21" y="45" width="3" height="4"/>
+          <rect x="69" y="23" width="3" height="4"/><rect x="76" y="30" width="3" height="4"/><rect x="69" y="44" width="3" height="4"/></g>
+        <g fill="#7CC8FF"><rect x="27" y="52" width="3" height="4"/><rect x="76" y="51" width="3" height="4"/></g>
+        <path d="M38 62 L38 32 Q38 27 43 27 L57 27 Q62 27 62 32 L62 62 Z" fill="#FF4D8D" stroke="#1A0F33" stroke-width="2"/>
+        <rect x="42" y="32" width="16" height="12" rx="2" fill="#14213D"/>
+        <path d="M45 40 L48 36 L51 40 L54 35 L56 40" fill="none" stroke="#3DF5C2" stroke-width="1.6"/>
+        <rect x="40" y="47" width="20" height="5" rx="1.5" fill="#C93A6F"/>
+        <line x1="45" y1="49" x2="45" y2="44" stroke="#1A0F33" stroke-width="1.6"/><circle cx="45" cy="43.5" r="2" fill="#FFD23F"/>
+        <circle cx="52" cy="49.5" r="1.6" fill="#7CC8FF"/><circle cx="56" cy="49.5" r="1.6" fill="#3DF5C2"/>
+        <rect x="40" y="22" width="20" height="5" rx="2" fill="#FFD23F"/>`);
+    }
+    if (n === 2) {
+      // Bosque Colorido: árboles redondos y un hongo
+      return svg(`${islandBase('#1E7A5C', '#3DD69E', '#6B4A2E', '#4E341F')}
+        <rect x="27" y="40" width="4" height="20" rx="2" fill="#6B4A2E"/>
+        <circle cx="29" cy="36" r="13" fill="#2FA37E"/><circle cx="24" cy="31" r="5" fill="#3DF5C2" opacity="0.7"/>
+        <rect x="64" y="34" width="4" height="26" rx="2" fill="#6B4A2E"/>
+        <circle cx="66" cy="28" r="15" fill="#FFD23F"/><circle cx="60" cy="23" r="5.5" fill="#FFE9A0" opacity="0.8"/>
+        <rect x="47" y="46" width="3" height="14" rx="1.5" fill="#6B4A2E"/>
+        <circle cx="48.5" cy="43" r="9" fill="#FF8FB8"/>
+        <path d="M38 61 Q38 52 44 52 Q50 52 50 61 Z" fill="#FFF4E6"/>
+        <path d="M36 54 Q44 42 52 54 Z" fill="#FF5E57"/><circle cx="41" cy="50" r="1.6" fill="#FFF4E6"/><circle cx="46" cy="48" r="1.4" fill="#FFF4E6"/>
+        <path d="M76 58 q2 -5 4 0 M82 59 q2 -4 4 0" fill="none" stroke="#2FA37E" stroke-width="2" stroke-linecap="round"/>`);
+    }
+    if (n === 3) {
+      // Órbita Lunar: suelo de luna con cráteres, bandera, cohete y un planeta
+      return svg(`<circle cx="22" cy="22" r="9" fill="#B07CFF"/><ellipse cx="22" cy="22" rx="15" ry="3.5" fill="none" stroke="#FFD23F" stroke-width="1.6" transform="rotate(-18 22 22)"/>
+        ${islandBase('#7E8DB5', '#C2CDE8', '#5C6A92', '#46527A')}
+        <ellipse cx="34" cy="60" rx="6" ry="2.2" fill="#9AA8CC"/><ellipse cx="66" cy="63" rx="4.5" ry="1.8" fill="#9AA8CC"/><ellipse cx="52" cy="66" rx="3" ry="1.2" fill="#9AA8CC"/>
+        <line x1="30" y1="59" x2="30" y2="38" stroke="#FFF4E6" stroke-width="2"/>
+        <path d="M30 38 L42 41 L30 45 Z" fill="#7CC8FF"/>
+        <path d="M60 58 L60 36 Q66 22 72 36 L72 58 Z" fill="#FFF4E6" stroke="#1A0F33" stroke-width="2"/>
+        <circle cx="66" cy="40" r="3.4" fill="#7CC8FF" stroke="#1A0F33" stroke-width="1.5"/>
+        <path d="M60 50 L54 58 L60 58 Z M72 50 L78 58 L72 58 Z" fill="#FF4D8D" stroke="#1A0F33" stroke-width="1.5" stroke-linejoin="round"/>
+        <g fill="#FFF4E6"><circle cx="84" cy="30" r="1.2"/><circle cx="46" cy="16" r="1"/><circle cx="90" cy="46" r="0.9"/></g>`);
+    }
+    if (n === 4) {
+      // Neo Ciudad: torii, farol y cerezo con luces de neón
+      return svg(`${islandBase('#1C1230', '#33215A', '#241A3A', '#120B22')}
+        <ellipse cx="50" cy="60.5" rx="37" ry="11" fill="none" stroke="#FF7EDB" stroke-width="1.6" opacity="0.8"/>
+        <rect x="70" y="40" width="4" height="20" rx="2" fill="#4E2C2C"/>
+        <circle cx="72" cy="34" r="11" fill="#FF9AD5"/><circle cx="66" cy="38" r="6" fill="#FFC2E6"/><circle cx="79" cy="38" r="5" fill="#FF7EDB"/>
+        <rect x="25" y="30" width="3.5" height="30" fill="#FF5E57"/><rect x="46" y="30" width="3.5" height="30" fill="#FF5E57"/>
+        <path d="M18 25 Q37 21 56 25 L56 29 Q37 25.5 18 29 Z" fill="#FF5E57" stroke="#1A0F33" stroke-width="1.5"/>
+        <rect x="21" y="33" width="32" height="3" fill="#C93A3A"/>
+        <rect x="58" y="48" width="7" height="10" rx="2" fill="#FFD23F" stroke="#1A0F33" stroke-width="1.4"/>
+        <line x1="61.5" y1="58" x2="61.5" y2="61" stroke="#1A0F33" stroke-width="1.4"/>
+        <g fill="#5CF2FF"><rect x="84" y="20" width="2" height="2"/><rect x="12" y="44" width="2" height="2"/></g>`);
+    }
+    // Gran Final: escenario con telón, bocinas y reflectores
+    return svg(`<path d="M24 14 L36 58 L48 58 Z" fill="#FFD23F" opacity="0.18"/><path d="M76 14 L52 58 L64 58 Z" fill="#FFD23F" opacity="0.18"/>
+      ${islandBase('#8A5A26', '#C98A3C', '#5E3A1E', '#43260F')}
+      <path d="M26 58 L26 30 Q50 18 74 30 L74 58 Z" fill="#B3263A" stroke="#1A0F33" stroke-width="2"/>
+      <path d="M32 58 L32 34 Q50 25 68 34 L68 58 Z" fill="#2B1652"/>
+      <path d="M26 30 Q32 40 34 58 M74 30 Q68 40 66 58" fill="none" stroke="#7E1A2A" stroke-width="2"/>
+      <path d="M50 34 L52.4 39.5 L58 40 L53.7 43.7 L55 49 L50 46.2 L45 49 L46.3 43.7 L42 40 L47.6 39.5 Z" fill="#FFD23F"/>
+      <rect x="14" y="44" width="9" height="15" rx="2" fill="#2B2440" stroke="#1A0F33" stroke-width="1.5"/><circle cx="18.5" cy="54" r="3" fill="#5B5378"/><circle cx="18.5" cy="47.5" r="1.6" fill="#5B5378"/>
+      <rect x="77" y="44" width="9" height="15" rx="2" fill="#2B2440" stroke="#1A0F33" stroke-width="1.5"/><circle cx="81.5" cy="54" r="3" fill="#5B5378"/><circle cx="81.5" cy="47.5" r="1.6" fill="#5B5378"/>
+      <circle cx="24" cy="13" r="3" fill="#FFF4E6"/><circle cx="76" cy="13" r="3" fill="#FFF4E6"/>`);
+  }
+
+  // Beat City: un edificio por mundo, se enciende cuando recuperas su ritmo
+  function beatCitySVG(done) {
+    const cols = WORLDS.map((w) => w.color);
+    const b = [[16, 34, 12], [29, 22, 13], [43, 14, 14], [58, 26, 13], [72, 36, 12]];
+    let city = '';
+    b.forEach(([x, y, w], i) => {
+      const on = i < done;
+      city += `<rect x="${x}" y="${y}" width="${w}" height="${62 - y}" rx="2" fill="${on ? '#2B1652' : '#26203A'}" stroke="${on ? cols[i] : '#3A3354'}" stroke-width="1.6"/>`;
+      for (let wy = y + 5; wy < 56; wy += 7) {
+        city += `<rect x="${x + 3}" y="${wy}" width="2.6" height="3.4" fill="${on ? cols[i] : '#3A3354'}"/><rect x="${x + w - 5.6}" y="${wy}" width="2.6" height="3.4" fill="${on ? '#FFF4E6' : '#3A3354'}" opacity="${on ? 0.8 : 1}"/>`;
+      }
+    });
+    const silence = done < WORLDS.length ? `<g class="city-cloud" opacity="${(1 - done / WORLDS.length * 0.75).toFixed(2)}">
+        <g fill="#3A3354"><circle cx="34" cy="16" r="9"/><circle cx="48" cy="11" r="12"/><circle cx="62" cy="16" r="9"/><rect x="26" y="14" width="44" height="11" rx="5.5"/></g>
+        <path d="M40 15 L45 18 M58 15 L53 18" stroke="#1A0F33" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="45" cy="20" r="2" fill="#FF5E57"/><circle cx="53" cy="20" r="2" fill="#FF5E57"/></g>`
+      : '<g fill="#FFD23F"><path d="M50 2 L52 7 L57 7 L53 10 L55 15 L50 12 L45 15 L47 10 L43 7 L48 7 Z"/></g>';
+    return `<svg class="island-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      ${islandBase('#3A2E5C', '#5A4A8A', '#2B2148', '#1E1734')}${city}${silence}</svg>`;
+  }
+
+  function secretCrystalSVG(open) {
+    return `<svg class="island-svg" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      <defs><linearGradient id="crystalG" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7CC8FF"/><stop offset="0.35" stop-color="#FF7EDB"/><stop offset="0.7" stop-color="#FFD23F"/><stop offset="1" stop-color="#3DF5C2"/></linearGradient></defs>
+      <ellipse cx="50" cy="93" rx="18" ry="3" fill="rgba(0,0,0,0.28)"/>
+      <g class="crystal">
+        <path d="M50 10 L72 40 L50 84 L28 40 Z" fill="${open ? 'url(#crystalG)' : '#2E2152'}" stroke="${open ? '#FFF4E6' : 'rgba(255,126,219,0.55)'}" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M28 40 L72 40 M50 10 L42 40 L50 84 L58 40 Z" fill="none" stroke="${open ? 'rgba(255,255,255,0.65)' : 'rgba(255,126,219,0.3)'}" stroke-width="1.5" stroke-linejoin="round"/>
+        ${open ? '<path d="M38 24 L44 20" stroke="#fff" stroke-width="3" stroke-linecap="round"/>' : '<text x="50" y="56" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="22" fill="rgba(255,126,219,0.7)">?</text>'}
+      </g></svg>`;
+  }
+
+  // Fondo del mapa de mundos: cielo nocturno con islas lejanas y nubes.
+  // Cada ritmo recuperado agrega una aurora del color de su mundo.
+  function overworldSVG(done) {
+    const rnd = mulberry(4242);
+    let stars = '';
+    for (let i = 0; i < 70; i++) {
+      const x = rnd() * 400, y = rnd() * 800, r = 0.5 + rnd() * 1.5;
+      stars += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="#fff" opacity="${(0.25 + rnd() * 0.6).toFixed(2)}"${rnd() < 0.3 ? ` class="sc-tw" style="animation-delay:${(rnd() * 2).toFixed(2)}s"` : ''}/>`;
+    }
+    let aurora = '';
+    WORLDS.forEach((w, i) => {
+      if (i >= done) return;
+      const y = 120 + i * 120;
+      aurora += `<path d="M-20 ${y} Q100 ${y - 60} 200 ${y} T420 ${y}" fill="none" stroke="${w.color}" stroke-width="46" stroke-linecap="round" opacity="0.13"/>`;
+    });
+    const cloud = (x, y, s, o) => `<g transform="translate(${x} ${y}) scale(${s})" opacity="${o}" fill="#3A2A66"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-8" r="26"/><circle cx="52" cy="0" r="20"/><rect x="0" y="-4" width="52" height="24" rx="12"/></g>`;
+    return `<svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="owSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0E0620"/><stop offset="0.55" stop-color="#22114A"/><stop offset="1" stop-color="#3A1A63"/></linearGradient>
+        <radialGradient id="owGlow" cx="0.5" cy="1" r="0.7"><stop offset="0" stop-color="#FF4D8D" stop-opacity="0.25"/><stop offset="1" stop-color="#FF4D8D" stop-opacity="0"/></radialGradient></defs>
+      <rect width="400" height="800" fill="url(#owSky)"/>
+      <rect width="400" height="800" fill="url(#owGlow)"/>
+      ${aurora}${stars}
+      <g class="ow-drift">${cloud(-20, 210, 1.3, 0.55)}${cloud(300, 420, 1.1, 0.45)}${cloud(40, 640, 1.5, 0.5)}${cloud(260, 90, 0.9, 0.4)}</g>
+      <g opacity="0.35"><ellipse cx="350" cy="300" rx="22" ry="6" fill="#4A2E7A"/><path d="M328 300 Q350 326 372 300 Z" fill="#2E1C52"/>
+        <ellipse cx="60" cy="520" rx="16" ry="4.5" fill="#4A2E7A"/><path d="M44 520 Q60 538 76 520 Z" fill="#2E1C52"/></g>
+    </svg>`;
+  }
+
   function makeNode(o) {
     const el = document.createElement(o.button === false ? 'div' : 'button');
     if (o.button !== false) el.type = 'button';
@@ -3082,11 +3352,14 @@
     if (o.label) el.setAttribute('aria-label', o.label);
     if (o.button === false) el.setAttribute('aria-hidden', 'true');
     el.style.setProperty('--c', o.color);
+    if (o.art) el.classList.add('map-node--art');
+    const prog = o.prog === undefined ? '' : `<span class="map-prog"><i style="width:${o.prog > 0 ? Math.max(6, Math.round(o.prog * 100)) : 0}%"></i></span>`;
     el.innerHTML = `
-      <span class="map-dot">${o.dot}</span>
+      <span class="map-dot${o.art ? ' map-island' : ''}">${o.art || o.dot}${o.badge || ''}</span>
       <span class="map-label">
         <span class="map-name">${o.name}</span>
         ${o.sub ? `<span class="map-sub">${o.sub}</span>` : ''}
+        ${prog}
         ${o.stars ? `<span class="map-stars">${o.stars}</span>` : ''}
       </span>`;
     return el;
@@ -3110,7 +3383,11 @@
     if (mapMode === 0) {
       // ----- Mapa de mundos -----
       screens.map.dataset.world = '0';
-      mapBg.innerHTML = '';
+      const owKey = 'overworld' + worldsDone();
+      if (!sceneCache[owKey]) sceneCache[owKey] = overworldSVG(worldsDone());
+      mapBg.innerHTML = sceneCache[owKey];
+      mapBg.style.removeProperty('--sat');
+      mapBg.style.removeProperty('--bri');
       mapPath.style.setProperty('--path', COLORS.yellow);
       $('map-title').textContent = 'MUNDOS';
       $('map-stars').textContent = `★ ${totalStars()}`;
@@ -3124,24 +3401,34 @@
 
       WORLDS.forEach((w) => {
         const un = worldUnlocked(w.num);
+        const fin = worldDone(w.num);
         const curWorld = current && current !== 'S' && levelById(current).world === w.num;
+        let badge = `<span class="isl-num">${w.num}</span>`;
+        if (!un) badge += '<span class="isl-lock">🔒</span>';
+        else if (fin) badge += '<span class="isl-done">✓</span>';
+        if (curWorld) badge += `<span class="isl-pum buddy">${characterSVG('pum')}</span>`;
         add(makeNode({
           key: 'W' + w.num, unlocked: un, current: curWorld, color: w.color,
-          dot: un ? (worldDone(w.num) ? '✓' : w.num) : '🔒',
-          name: `${un ? '⭐ ' : ''}Mundo ${w.num}${un ? '' : ' 🔒'}`,
+          extraClass: 'map-node--world' + (fin ? ' is-done' : ''),
+          art: worldIslandSVG(w.num), badge,
+          name: `Mundo ${w.num}`,
           sub: un ? w.name : 'Bloqueado',
-          stars: un ? `★ ${worldStars(w.num)}/25${worldDone(w.num) ? ' ✓' : ''}` : '',
+          prog: un ? worldStars(w.num) / 25 : undefined,
+          stars: un ? `★ ${worldStars(w.num)}/25${fin ? ' · ritmo recuperado' : curWorld ? ' · estás aquí' : ''}` : `Vence al jefe del Mundo ${w.num - 1}`,
           label: un ? `Mundo ${w.num}, ${w.name}, ${worldStars(w.num)} de 25 estrellas` : `Mundo ${w.num}, bloqueado`
         }));
       });
       add(makeNode({
         button: false, unlocked: done === WORLDS.length, color: COLORS.ink, extraClass: 'map-node--goal',
-        dot: '🏁', name: 'Beat City', sub: `${done} / 5 ritmos`
+        art: beatCitySVG(done), dot: '🏁', name: 'Beat City',
+        sub: done === WORLDS.length ? '¡La ciudad vuelve a sonar!' : `${done} / 5 ritmos recuperados`,
+        prog: done / WORLDS.length
       }));
       const sUn = isUnlocked(SECRET_LEVEL);
       const sr = rec(SECRET_LEVEL);
       add(makeNode({
         key: 'S', unlocked: sUn, current: current === 'S', color: '#FF7EDB', extraClass: 'map-node--secret',
+        art: secretCrystalSVG(sUn),
         dot: sUn ? '✨' : '🔒',
         name: sUn ? '✨ NIVEL SECRETO ✨' : '🔒 NIVEL SECRETO',
         sub: sUn ? SECRET_LEVEL.name : `Consigue las ${MAIN_LEVELS.length * 5} estrellas`,
@@ -3291,6 +3578,11 @@
   function scrollMapTo(id) {
     const node = mapTrack.querySelector(`.map-node[data-key="${id}"]`);
     if (!node) return;
+    // En pantallas grandes el mapa es horizontal y cabe completo: no hace falta desplazar
+    if (getComputedStyle(mapTrack).flexDirection === 'row') {
+      mapScroll.scrollTop = 0;
+      return;
+    }
     const top = node.offsetTop + mapTrack.offsetTop - mapScroll.clientHeight / 2 + node.offsetHeight / 2;
     mapScroll.scrollTop = Math.max(0, top);
   }
@@ -3317,6 +3609,7 @@
       const d = vertical
         ? `M${x1.toFixed(1)} ${y1.toFixed(1)} C${x1.toFixed(1)} ${my}, ${x2.toFixed(1)} ${my}, ${x2.toFixed(1)} ${y2.toFixed(1)}`
         : `M${x1.toFixed(1)} ${y1.toFixed(1)} C${mx} ${y1.toFixed(1)}, ${mx} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+      if (screens.map.dataset.world === '0') html += `<path class="seg-road ${cls}" d="${d}"/>`;
       html += `<path class="seg ${cls}" d="${d}"/>`;
     }
     mapPath.innerHTML = html;
@@ -3411,6 +3704,8 @@
         <button class="btn-secondary btn-small" type="button" data-film="${f.kind}" ${f.ok ? '' : 'disabled'} aria-label="Ver ${f.name}">${f.ok ? 'VER' : '🔒'}</button>
       </div>`).join('');
     optSound.setAttribute('aria-checked', AudioEngine.muted ? 'false' : 'true');
+    const mm = $('opt-menu-music');
+    if (mm) mm.setAttribute('aria-checked', progress.menuMusic ? 'true' : 'false');
     syncRange.value = String(progress.offsetMs);
     syncValue.textContent = (progress.offsetMs > 0 ? '+' : '') + progress.offsetMs + ' ms';
     $('opt-storage-note').textContent = Store.ok
@@ -3423,6 +3718,12 @@
   on('opt-music', 'input', (e) => setMusicVol(+e.target.value));
   on('music-minus', 'click', () => setMusicVol(progress.musicVol - 10));
   on('music-plus', 'click', () => setMusicVol(progress.musicVol + 10));
+  on('opt-menu-music', 'click', () => {
+    progress.menuMusic = !progress.menuMusic;
+    Store.save(progress);
+    renderOptions();
+    MenuMusic.sync(currentScreen);
+  });
 
   function setOffset(ms) {
     progress.offsetMs = clamp(Math.round(ms / 5) * 5, -250, 250);
@@ -3448,7 +3749,7 @@
       return;
     }
     clearTimeout(resetArmedTimer);
-    const keep = { muted: progress.muted, musicVol: progress.musicVol, offsetMs: progress.offsetMs, introSeen: progress.introSeen, tutorialSeen: progress.tutorialSeen };
+    const keep = { muted: progress.muted, musicVol: progress.musicVol, menuMusic: progress.menuMusic, offsetMs: progress.offsetMs, introSeen: progress.introSeen, tutorialSeen: progress.tutorialSeen };
     progress = Object.assign(defaultProgress(), keep);
     Store.save(progress);
     renderOptions();

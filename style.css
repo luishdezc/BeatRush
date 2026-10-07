@@ -2011,7 +2011,9 @@ h2, h3 { font-weight: 700; }
 .stage.is-boss .tag { top: 116px; }
 
 @media (min-width: 860px) and (min-height: 600px) {
-  .map-scroll { flex-direction: column; justify-content: center; }
+  .map-scroll { flex-direction: column; justify-content: flex-start; }
+  .map-scroll > .map-lore { margin-top: auto; }
+  .map-scroll > .map-track { margin-bottom: auto; }
   .map-lore { max-width: 640px; margin-top: 10px; }
 }
 
@@ -3020,4 +3022,416 @@ h2, h3 { font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) {
   .boss .boss-cloud svg, .boss .boss-cloud svg * { animation: none !important; }
+}
+
+
+/* =========================================================
+   PUM EN EL INICIO: 5 TRUCOS AL TOCARLO
+   ========================================================= */
+.buddy--hero {
+  position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 24px;
+  outline: none;
+}
+
+.buddy--hero:focus-visible { box-shadow: 0 0 0 3px var(--yellow, #FFD23F); }
+
+.hero-bubble {
+  position: absolute;
+  bottom: 84%;
+  left: 74%;
+  z-index: 3;
+  padding: 6px 11px 7px;
+  border-radius: 14px 14px 14px 4px;
+  background: #FFF4E6;
+  color: #1A0F33;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: translate(-6px, 8px) scale(0.6);
+  transform-origin: 0% 100%;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+
+.hero-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  border: 7px solid transparent;
+  border-top-color: #FFF4E6;
+  border-left-color: #FFF4E6;
+  border-bottom: 0;
+  border-right-width: 9px;
+}
+
+.buddy--hero.has-bubble .hero-bubble {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.12s ease, transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+/* Partículas (notas, estrellas, chispas) */
+.hero-fx {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  z-index: 2;
+  font-size: 22px;
+  line-height: 1;
+  color: #FFD23F;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  --dx: calc((var(--i) - (var(--n) - 1) / 2) * 34px);
+  animation: hero-fx 0.9s ease-out forwards;
+  animation-delay: calc(var(--i) * 0.12s);
+}
+
+.is-trick-3 .hero-fx { color: #3DF5C2; font-size: 24px; }
+.is-trick-2 .hero-fx { color: #7CC8FF; }
+
+@keyframes hero-fx {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.4); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -70px) scale(1.15) rotate(15deg); }
+}
+
+/* Estrellitas del mareo: giran alrededor de la cabeza */
+.is-trick-5 .hero-fx {
+  top: 12%;
+  animation: hero-dizzy-fx 1.2s linear forwards;
+  animation-delay: calc(var(--i) * -0.4s + 0.4s);
+}
+
+@keyframes hero-dizzy-fx {
+  0% { opacity: 0; transform: translate(-50%, 0) rotate(0deg) translateX(34px) rotate(0deg); }
+  15%, 80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, 0) rotate(720deg) translateX(34px) rotate(-720deg); }
+}
+
+/* Caras durante los trucos */
+.buddy--hero[class*="is-trick-"] .b-eyes-normal,
+.buddy--hero[class*="is-trick-"] .b-mouth-normal { display: none; }
+.buddy--hero[class*="is-trick-"] .b-mouth-open { display: inline; }
+.buddy--hero.is-trick-1 .b-eyes-happy,
+.buddy--hero.is-trick-2 .b-eyes-happy,
+.buddy--hero.is-trick-3 .b-eyes-happy,
+.buddy--hero.is-trick-4 .b-eyes-happy,
+.buddy--hero.is-trick-5 .b-eyes-dizzy { display: inline; }
+.buddy--hero.is-trick-5 .b-mouth-open { display: none; }
+.buddy--hero.is-trick-5 .b-mouth-sad { display: inline; }
+
+/* 1 · ¡Boing!: salto gigante con estirón y aplastón */
+.buddy--hero.is-trick-1 .buddy-inner { animation: trick-jump 0.85s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+@keyframes trick-jump {
+  0% { transform: none; }
+  12% { transform: scale(1.18, 0.78); }
+  40% { transform: translateY(-58%) scale(0.88, 1.14); }
+  55% { transform: translateY(-64%) scale(1); }
+  78% { transform: translateY(0) scale(1.2, 0.8); }
+  90% { transform: translateY(-6%) scale(0.95, 1.05); }
+  100% { transform: none; }
+}
+
+/* 2 · ¡Wiii!: voltereta hacia atrás */
+.buddy--hero.is-trick-2 .buddy-inner { animation: trick-flip 0.9s ease-in-out both; transform-origin: 50% 55%; }
+@keyframes trick-flip {
+  0% { transform: none; }
+  15% { transform: translateY(6%) scale(1.1, 0.88); }
+  35% { transform: translateY(-40%) rotate(-120deg); }
+  60% { transform: translateY(-45%) rotate(-300deg); }
+  85% { transform: translateY(0) rotate(-360deg) scale(1.1, 0.9); }
+  100% { transform: rotate(-360deg); }
+}
+
+/* 3 · ¡A bailar!: baile de lado a lado agitando la baqueta */
+.buddy--hero.is-trick-3 .buddy-inner { animation: trick-dance 1.2s ease-in-out both; }
+.buddy--hero.is-trick-3 .b-arm { animation: trick-wave 0.15s ease-in-out infinite alternate; }
+@keyframes trick-dance {
+  0%, 100% { transform: none; }
+  12.5% { transform: translateX(-12%) rotate(-10deg) translateY(-4%); }
+  25% { transform: translateX(0) scale(1.06, 0.94); }
+  37.5% { transform: translateX(12%) rotate(10deg) translateY(-4%); }
+  50% { transform: translateX(0) scale(1.06, 0.94); }
+  62.5% { transform: translateX(-12%) rotate(-10deg) translateY(-4%); }
+  75% { transform: translateX(0) scale(1.06, 0.94); }
+  87.5% { transform: translateX(12%) rotate(10deg) translateY(-4%); }
+}
+@keyframes trick-wave {
+  from { transform: rotate(-75deg); }
+  to { transform: rotate(-30deg); }
+}
+
+/* 4 · Solo de batería: tamborilea rapidísimo y termina con un salto */
+.buddy--hero.is-trick-4 .buddy-inner { animation: trick-solo 1.15s ease-out both; }
+.buddy--hero.is-trick-4 .b-arm { animation: hero-drum 0.09s linear 9; }
+@keyframes trick-solo {
+  0%, 60% { transform: translateX(0); }
+  8%, 24%, 40%, 56% { transform: translateX(-2.5%) scale(1.02, 0.98); }
+  16%, 32%, 48% { transform: translateX(2.5%) scale(1.02, 0.98); }
+  72% { transform: translateY(-22%) rotate(-6deg) scale(1.05); }
+  86% { transform: translateY(0) scale(1.12, 0.88); }
+  100% { transform: none; }
+}
+
+/* 5 · ¡Me mareé!: gira como trompo y se tambalea */
+.buddy--hero.is-trick-5 .buddy-inner { animation: trick-dizzy 1.45s ease-out both; }
+@keyframes trick-dizzy {
+  0% { transform: perspective(400px) rotateY(0); }
+  40% { transform: perspective(400px) rotateY(1080deg); }
+  55% { transform: rotate(-12deg) translateX(-6%); }
+  70% { transform: rotate(10deg) translateX(5%); }
+  85% { transform: rotate(-6deg) translateX(-3%); }
+  100% { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy--hero[class*="is-trick-"] .buddy-inner,
+  .buddy--hero[class*="is-trick-"] .b-arm,
+  .hero-fx { animation: none !important; }
+  .hero-fx { display: none; }
+}
+
+
+/* =========================================================
+   MAPA DE MUNDOS ILUSTRADO
+   ========================================================= */
+.screen--map[data-world="0"] .map-bg::after {
+  background: linear-gradient(to bottom, rgba(14, 6, 32, 0.45), transparent 22%, transparent 75%, rgba(14, 6, 32, 0.55));
+}
+
+.map-bg .ow-drift { animation: ow-drift 26s ease-in-out infinite alternate; }
+
+@keyframes ow-drift {
+  from { transform: translateX(-14px); }
+  to { transform: translateX(18px); }
+}
+
+.screen--map[data-world="0"] .map-track { gap: 6px; padding-top: 10px; }
+
+/* Ruta: borde oscuro debajo y el ritmo "fluyendo" por los tramos recuperados */
+.map-path .seg-road {
+  fill: none;
+  stroke: rgba(10, 4, 24, 0.55);
+  stroke-width: 17;
+  stroke-linecap: round;
+}
+
+.map-path .seg-road.is-locked { stroke: rgba(10, 4, 24, 0.3); }
+
+.screen--map[data-world="0"] .map-path .seg { stroke-width: 6; }
+.screen--map[data-world="0"] .map-path .seg.is-done {
+  stroke: var(--yellow);
+  stroke-dasharray: 16 10;
+  animation: road-flow 0.9s linear infinite;
+}
+.screen--map[data-world="0"] .map-path .seg.is-secret.is-done { stroke: #FF7EDB; }
+
+@keyframes road-flow { to { stroke-dashoffset: -26; } }
+
+/* Nodos con ilustración */
+.map-node--art { width: 94%; gap: 8px; padding: 2px; }
+.map-node--art.is-selected { background: transparent; }
+
+.map-island {
+  width: 100px;
+  height: 100px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+}
+
+.map-node.is-locked .map-island { border: 0; background: transparent; }
+
+.map-island .island-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: island-float 3.2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  transition: filter 0.3s ease, transform 0.2s ease;
+}
+
+.map-node--art:nth-child(odd) .island-svg { animation-delay: -1.6s; }
+.map-node.is-locked .map-island .island-svg { filter: grayscale(1) brightness(0.62) contrast(0.9) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); opacity: 0.85; }
+.map-node--art.is-selected .island-svg { filter: drop-shadow(0 0 14px var(--c)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); }
+.map-node--art.is-locked.is-selected .island-svg { filter: grayscale(0.9) brightness(0.55) drop-shadow(0 0 10px rgba(181, 166, 218, 0.6)); }
+.map-node--art:active .island-svg { transform: scale(0.94); }
+
+@keyframes island-float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-6px); }
+}
+
+/* Anillo del mundo actual: un halo en el suelo de la isla */
+.map-node--art.is-current .map-dot::after {
+  inset: auto 8% 4% 8%;
+  height: 16%;
+  border-radius: 50%;
+  border-width: 3px;
+}
+
+.isl-num {
+  position: absolute;
+  top: 4px;
+  left: 2px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid #FFF4E6;
+  background: var(--c);
+  color: #1A0F33;
+  font-family: var(--font-display);
+  font-size: 14px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.map-node.is-locked .isl-num { background: #3A3354; color: rgba(255, 244, 230, 0.7); border-color: rgba(181, 166, 218, 0.6); }
+
+.isl-lock,
+.isl-done {
+  position: absolute;
+  right: 4px;
+  bottom: 10px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.isl-lock { background: #26203A; border: 2px dashed rgba(181, 166, 218, 0.6); }
+.isl-done { background: var(--mint); color: #1A0F33; font-weight: 900; font-size: 16px; border: 3px solid #FFF4E6; }
+
+/* Pum parado en el mundo donde vas */
+.isl-pum {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 2;
+  width: 42px;
+  margin-left: -21px;
+  pointer-events: none;
+  animation: isl-pum 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes isl-pum {
+  from { transform: translateY(0) scale(1.03, 0.97); }
+  to { transform: translateY(-5px) scale(0.98, 1.03); }
+}
+
+/* Tarjeta de texto de cada nodo */
+.screen--map[data-world="0"] .map-label {
+  flex: 0 1 auto;
+  max-width: calc(100% - 112px);
+  padding: 8px 12px 9px;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 244, 230, 0.07);
+  background: rgba(16, 8, 31, 0.68);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.screen--map[data-world="0"] .map-node.is-right .map-label { align-items: flex-end; }
+.screen--map[data-world="0"] .map-node.is-selected .map-label { border-color: var(--c); transform: scale(1.03); }
+.screen--map[data-world="0"] .map-node.is-locked .map-label { background: rgba(16, 8, 31, 0.5); }
+
+.screen--map[data-world="0"] .map-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  color: var(--c);
+}
+
+.screen--map[data-world="0"] .map-node.is-locked .map-name { color: rgba(181, 166, 218, 0.75); }
+.screen--map[data-world="0"] .map-sub { color: var(--ink); font-weight: 700; font-size: 14px; }
+.screen--map[data-world="0"] .map-node.is-locked .map-sub { color: var(--muted); font-weight: 400; }
+.screen--map[data-world="0"] .map-stars { font-size: 12.5px; letter-spacing: 0; color: var(--muted); white-space: normal; }
+
+.map-prog {
+  display: block;
+  width: 118px;
+  max-width: 100%;
+  height: 7px;
+  margin: 4px 0 3px;
+  border-radius: 999px;
+  background: rgba(255, 244, 230, 0.12);
+  overflow: hidden;
+}
+
+.map-prog i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--yellow), var(--c));
+}
+
+/* Beat City y nivel secreto */
+.map-node--goal.map-node--art .map-dot { background: transparent; font-size: 16px; }
+.screen--map[data-world="0"] .map-node--goal .map-name { color: var(--yellow); }
+.map-node--goal .map-prog i { background: linear-gradient(90deg, #FF4D8D, #3DF5C2, #7CC8FF, #FF7EDB, #FFD23F); background-size: 118px 100%; }
+.map-node--goal .city-cloud { animation: island-float 1.6s ease-in-out infinite alternate; }
+
+.map-node--secret.map-node--art .map-dot,
+.map-node--secret.is-locked.map-node--art .map-dot { background: transparent; border: 0; }
+.map-node--secret.is-locked .map-island .island-svg { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); }
+.map-node--secret.is-unlocked .crystal { transform-box: fill-box; transform-origin: center; animation: crystal-shine 2.4s ease-in-out infinite; }
+.screen--map[data-world="0"] .map-node--secret .map-name { color: #FFB8EC; }
+
+@keyframes crystal-shine {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 126, 219, 0.6)); transform: rotate(-3deg); }
+  50% { filter: drop-shadow(0 0 14px rgba(124, 200, 255, 0.9)); transform: rotate(3deg); }
+}
+
+@media (max-height: 600px), (max-width: 350px) {
+  .map-island { width: 82px; height: 82px; }
+  .isl-pum { width: 36px; margin-left: -18px; top: 14px; }
+  .screen--map[data-world="0"] .map-label { max-width: calc(100% - 92px); padding: 6px 10px 7px; }
+  .screen--map[data-world="0"] .map-name { font-size: 15px; }
+  .map-prog { width: 96px; }
+}
+
+@media (min-width: 860px) and (min-height: 600px) {
+  .map-node--art,
+  .map-node--art.is-left,
+  .map-node--art.is-right { flex: 1 1 0; min-width: 0; max-width: 150px; }
+  .map-node--art.is-left { transform: translateY(-44px); }
+  .map-node--art.is-right { transform: translateY(44px); }
+  .screen--map[data-world="0"] .map-track { gap: 4px; padding: 30px 16px; }
+  .screen--map[data-world="0"] .map-label { width: 100%; max-width: 150px; align-items: center; text-align: center; padding: 6px 8px 7px; }
+  .screen--map[data-world="0"] .map-node.is-right .map-label { align-items: center; }
+  .screen--map[data-world="0"] .map-name { font-size: 15px; white-space: normal; }
+  .screen--map[data-world="0"] .map-sub { white-space: normal; font-size: 13px; }
+  .map-prog { width: 100%; }
+  .map-island { width: 92px; height: 92px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-bg .ow-drift,
+  .map-island .island-svg,
+  .isl-pum,
+  .map-node--goal .city-cloud,
+  .map-node--secret .crystal,
+  .screen--map[data-world="0"] .map-path .seg.is-done { animation: none !important; }
 }
